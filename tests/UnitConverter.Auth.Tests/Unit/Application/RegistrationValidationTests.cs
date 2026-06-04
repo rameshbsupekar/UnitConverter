@@ -1,18 +1,15 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using UnitConverter.Auth.Application.Commands;
-using UnitConverter.Auth.Application.Validators;
-using UnitConverter.Auth.Common.Constants;
-using Moq;
-using UnitConverter.Auth.Common.Interfaces;
-using UnitConverter.Auth.Core.Domain.ValueObjects;
-
-namespace UnitConverter.Auth.Tests.Unit.Application;
+using UnitConverter.UserManagement.Contracts.Requests;
+using UnitConverter.UserManagement.Api.Tests.TestHelpers;
+using UnitConverter.UserManagement.Application.Validators;
+using UnitConverter.Common.Constants.Validation;
+namespace UnitConverter.UserManagement.Api.Tests.Unit.Application;
 
 /// <summary>
-/// BDD-organized, data-driven tests for RegisterUserCommand validation.
+/// BDD-organized, data-driven tests for RegisterUserRequest validation.
 /// Uses [DataTestMethod] and [DataRow] to eliminate test duplication.
 /// Groups tests by scenario: happy path, email validation (positive/negative),
 /// password validation (positive/negative), name validation, organization validation,
@@ -24,17 +21,11 @@ namespace UnitConverter.Auth.Tests.Unit.Application;
 public class RegistrationValidationTests
 {
     private RegisterUserValidator _validator = null!;
-    private Mock<IUserRepository> _mockUserRepository = null!;
 
     [TestInitialize]
     public void Setup()
     {
-        _mockUserRepository = new Mock<IUserRepository>();
-        _mockUserRepository
-            .Setup(r => r.EmailExistsAsync(It.IsAny<Email>()))
-            .ReturnsAsync(false);
-
-        _validator = new RegisterUserValidator(_mockUserRepository.Object);
+        _validator = new RegisterUserValidator();
     }
 
     // ===== SCENARIO 1: Happy Path - Valid Inputs =====
@@ -47,15 +38,12 @@ public class RegistrationValidationTests
         string email, string password, string firstName, string lastName, string org, bool expectedValid)
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = email,
-            Password = password,
-            FirstName = firstName,
-            LastName = lastName,
-            OrganizationName = org,
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: email,
+            password: password,
+            firstName: firstName,
+            lastName: lastName,
+            organizationName: org);
 
         // Act
         var result = _validator.Validate(command);
@@ -72,15 +60,12 @@ public class RegistrationValidationTests
     public void Validate_MinimumValidInput_Succeeds()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "a@b.com",
-            Password = "ValidPass123!@#",
-            FirstName = "A",
-            LastName = "B",
-            OrganizationName = "O",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "a@b.com",
+            password: "ValidPass123!@#",
+            firstName: "A",
+            lastName: "B",
+            organizationName: "O");
 
         // Act
         var result = _validator.Validate(command);
@@ -99,15 +84,12 @@ public class RegistrationValidationTests
     public void Validate_ValidEmailFormats_Pass(string email)
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = email,
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: email,
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME");
 
         // Act
         var result = _validator.Validate(command);
@@ -121,15 +103,12 @@ public class RegistrationValidationTests
     public void Validate_EmailCaseSensitivity_Accepts()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "User@EXAMPLE.COM",
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "User@EXAMPLE.COM",
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME");
 
         // Act
         var result = _validator.Validate(command);
@@ -144,51 +123,15 @@ public class RegistrationValidationTests
     [DataRow("invalid.email")]
     [DataRow("@example.com")]
     [DataRow("user@")]
-    public void Validate_InvalidEmailFormats_Fail(string email)
-    {
-        // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = email,
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
-
-        // Act
-        var result = _validator.Validate(command);
-
-        // Assert
-        var emailErrors = result.Errors.Where(e => e.PropertyName == "Email").ToList();
-        Assert.IsTrue(emailErrors.Count > 0);
-    }
+    public void Validate_InvalidEmailFormats_Fail(string email) =>
+        AssertEmailValidationFails(email, expectFormatError: true);
 
     [DataTestMethod]
     [DataRow("")]
     [DataRow(null)]
     [DataRow("   ")]
-    public void Validate_EmptyEmail_FailsWithRequiredError(string email)
-    {
-        // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = email,
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
-
-        // Act
-        var result = _validator.Validate(command);
-
-        // Assert
-        var emailErrors = result.Errors.Where(e => e.PropertyName == "Email").ToList();
-        Assert.IsTrue(emailErrors.Count > 0);
-    }
+    public void Validate_EmptyEmail_FailsWithRequiredError(string email) =>
+        AssertEmailValidationFails(email, expectFormatError: false);
 
     // ===== SCENARIO 4: Password Validation - Positive =====
 
@@ -200,15 +143,12 @@ public class RegistrationValidationTests
     public void Validate_StrongPasswords_Pass(string password)
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = password,
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: password,
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME");
 
         // Act
         var result = _validator.Validate(command);
@@ -226,75 +166,21 @@ public class RegistrationValidationTests
     [DataRow("NoDigit@abc")]      
     [DataRow("abc123!@#")]   
        
-    public void Validate_WeakPasswords_Fail(string password)
-    {
-        // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = password,
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
-
-        // Act
-        var result = _validator.Validate(command);
-
-        // Assert
-        var passwordErrors = result.Errors.Where(e => e.PropertyName == "Password").ToList();
-        Assert.IsTrue(passwordErrors.Count > 0);
-    }
+    public void Validate_WeakPasswords_Fail(string password) =>
+        AssertPasswordValidationFails(password, expectPolicyError: true);
 
     [DataTestMethod]
     [DataRow("Short@Pass1")]
     [DataRow("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*_+-=[]{}|:,.;<>?/ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")]
-    public void Validate_PasswordLength_Enforced(string password)
-    {
-        // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = password,
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
-
-        // Act
-        var result = _validator.Validate(command);
-
-        // Assert
-        var passwordErrors = result.Errors.Where(e => e.PropertyName == "Password").ToList();
-        Assert.IsTrue(passwordErrors.Count > 0);
-    }
+    public void Validate_PasswordLength_Enforced(string password) =>
+        AssertPasswordValidationFails(password, expectPolicyError: false);
 
     [DataTestMethod]
     [DataRow("")]
     [DataRow(null)]
     [DataRow("   ")]
-    public void Validate_EmptyPassword_FailsWithRequiredError(string password)
-    {
-        // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = password,
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
-
-        // Act
-        var result = _validator.Validate(command);
-
-        // Assert
-        var passwordErrors = result.Errors.Where(e => e.PropertyName == "Password").ToList();
-        Assert.IsTrue(passwordErrors.Count > 0);
-    }
+    public void Validate_EmptyPassword_FailsWithRequiredError(string password) =>
+        AssertPasswordValidationFails(password, expectRequiredError: true);
 
     // ===== SCENARIO 6: Name Validation - Positive =====
 
@@ -306,15 +192,12 @@ public class RegistrationValidationTests
     public void Validate_ValidNames_Pass(string firstName, string lastName)
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = firstName,
-            LastName = lastName,
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "SecurePass123!@#",
+            firstName: firstName,
+            lastName: lastName,
+            organizationName: "ACME");
 
         // Act
         var result = _validator.Validate(command);
@@ -335,15 +218,12 @@ public class RegistrationValidationTests
     public void Validate_InvalidNameCharacters_Fail(string invalidName)
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = invalidName,
-            LastName = "Smith",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "SecurePass123!@#",
+            firstName: invalidName,
+            lastName: "Smith",
+            organizationName: "ACME");
 
         // Act
         var result = _validator.Validate(command);
@@ -359,15 +239,12 @@ public class RegistrationValidationTests
     public void Validate_NameLength_Enforced(string name)
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = name,
-            LastName = "Smith",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "SecurePass123!@#",
+            firstName: name,
+            lastName: "Smith",
+            organizationName: "ACME");
 
         // Act
         var result = _validator.Validate(command);
@@ -388,15 +265,12 @@ public class RegistrationValidationTests
     public void Validate_ValidOrganizations_Pass(string org)
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = org,
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: org);
 
         // Act
         var result = _validator.Validate(command);
@@ -412,15 +286,12 @@ public class RegistrationValidationTests
     public void Validate_OrganizationLength_Enforced(string org)
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = org,
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: org);
 
         // Act
         var result = _validator.Validate(command);
@@ -442,15 +313,12 @@ public class RegistrationValidationTests
         string email, string password, string firstName, string lastName, string org)
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = email,
-            Password = password,
-            FirstName = firstName,
-            LastName = lastName,
-            OrganizationName = org,
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: email,
+            password: password,
+            firstName: firstName,
+            lastName: lastName,
+            organizationName: org);
 
         // Act
         var result = _validator.Validate(command);
@@ -469,15 +337,14 @@ public class RegistrationValidationTests
     public void Validate_IdempotencyKey_Required(string idempotencyKey)
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = idempotencyKey
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME",
+            idempotencyKey: idempotencyKey,
+            generateIdempotencyKeyIfMissing: false);
 
         // Act
         var result = _validator.Validate(command);
@@ -498,15 +365,12 @@ public class RegistrationValidationTests
         var maxLastName = new string('B', 100);
         var maxOrg = new string('C', 200);
 
-        var command = new RegisterUserCommand
-        {
-            Email = "boundary@example.com",
-            Password = maxPassword,
-            FirstName = maxFirstName,
-            LastName = maxLastName,
-            OrganizationName = maxOrg,
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "boundary@example.com",
+            password: maxPassword,
+            firstName: maxFirstName,
+            lastName: maxLastName,
+            organizationName: maxOrg);
 
         // Act
         var result = _validator.Validate(command);
@@ -524,20 +388,78 @@ public class RegistrationValidationTests
         var maxOrg = new string('C', 200);
         var maxPassword = "A" + new string('a', 114) + "123!@#";
 
-        var command = new RegisterUserCommand
-        {
-            Email = "maxlength@example.com",
-            Password = maxPassword,
-            FirstName = maxFirstName,
-            LastName = maxLastName,
-            OrganizationName = maxOrg,
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "maxlength@example.com",
+            password: maxPassword,
+            firstName: maxFirstName,
+            lastName: maxLastName,
+            organizationName: maxOrg);
 
         // Act
         var result = _validator.Validate(command);
 
         // Assert
         Assert.IsTrue(result.IsValid);
+    }
+
+    private void AssertEmailValidationFails(string email, bool expectFormatError)
+    {
+        var command = RegisterUserRequestFactory.Create(
+            email: email,
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME");
+
+        var result = _validator.Validate(command);
+        var emailErrors = result.Errors.Where(e => e.PropertyName == "Email").ToList();
+        Assert.IsTrue(emailErrors.Count > 0);
+
+        if (expectFormatError)
+        {
+            Assert.IsTrue(
+                emailErrors.Exists(e => e.ErrorMessage.Contains("format", StringComparison.OrdinalIgnoreCase)),
+                "Expected an email format validation error.");
+        }
+    }
+
+    private void AssertPasswordValidationFails(
+        string password,
+        bool expectPolicyError = false,
+        bool expectRequiredError = false)
+    {
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: password,
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME");
+
+        var result = _validator.Validate(command);
+        var passwordErrors = result.Errors.Where(e => e.PropertyName == "Password").ToList();
+        Assert.IsTrue(passwordErrors.Count > 0);
+
+        if (expectRequiredError)
+        {
+            Assert.IsTrue(
+                passwordErrors.Exists(e => e.ErrorMessage.Contains("required", StringComparison.OrdinalIgnoreCase)),
+                "Expected a required-password validation error.");
+        }
+        else if (expectPolicyError)
+        {
+            Assert.IsFalse(
+                passwordErrors.TrueForAll(e =>
+                    e.ErrorMessage.Contains("length", StringComparison.OrdinalIgnoreCase)),
+                "Expected a password policy validation error.");
+        }
+        else
+        {
+            Assert.IsTrue(
+                passwordErrors.Exists(e =>
+                    e.ErrorMessage.Contains("length", StringComparison.OrdinalIgnoreCase)
+                    || e.ErrorMessage.Contains("at least", StringComparison.OrdinalIgnoreCase)
+                    || e.ErrorMessage.Contains("exceed", StringComparison.OrdinalIgnoreCase)),
+                "Expected a password length validation error.");
+        }
     }
 }

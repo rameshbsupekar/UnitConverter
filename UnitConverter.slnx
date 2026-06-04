@@ -1,20 +1,27 @@
-﻿<Solution>
-  <!-- Source Projects (6 total) -->
-  <Project Path="src/UnitConverter.Api/UnitConverter.API.csproj" />
-  <Project Path="src/UnitConverter.Domain/UnitConverter.Domain.csproj" />
-  <Project Path="src/UnitConverter.Application/UnitConverter.Application.csproj" />
-  <Project Path="src/UnitConverter.Infrastructure/UnitConverter.Infrastructure.csproj" />
-  <Project Path="src/UnitConverter.Web/UnitConverter.Web.csproj" />
-  <Project Path="src/UnitConverter.ServiceDefaults/UnitConverter.ServiceDefaults.csproj" />
-  
-  <!-- Test Projects (5 total) -->
-  <Project Path="tests/UnitConverter.Domain.Tests/UnitConverter.Domain.Tests.csproj" />
-  <Project Path="tests/UnitConverter.Application.Tests/UnitConverter.Application.Tests.csproj" />
+<Solution>
+  <!-- Shared -->
+  <Project Path="src/UnitConverter.Common.Contracts/UnitConverter.Common.Contracts.csproj" />
+  <Project Path="src/UnitConverter.Common/UnitConverter.Common.csproj" />
+
+  <!-- User management (identity, auth, tokens) -->
+  <Project Path="src/UnitConverter.UserManagement.Contracts/UnitConverter.UserManagement.Contracts.csproj" />
+  <Project Path="src/UnitConverter.UserManagement/UnitConverter.UserManagement.csproj" />
+  <Project Path="src/UnitConverter.UserManagement.DataAccess/UnitConverter.UserManagement.DataAccess.csproj" />
+  <Project Path="src/UnitConverter.UserManagement.Api/UnitConverter.UserManagement.Api.csproj" />
+
+  <!-- Units definitions (catalog, conversion) -->
+  <Project Path="src/UnitConverter.UnitsDefinitions.Contracts/UnitConverter.UnitsDefinitions.Contracts.csproj" />
+  <Project Path="src/UnitConverter.UnitsDefinitions/UnitConverter.UnitsDefinitions.csproj" />
+  <Project Path="src/UnitConverter.UnitsDefinitions.DataAccess/UnitConverter.UnitsDefinitions.DataAccess.csproj" />
+  <Project Path="src/UnitConverter.UnitsDefinitions.Api/UnitConverter.UnitsDefinitions.Api.csproj" />
+
+  <!-- Tests -->
+  <Project Path="tests/UnitConverter.Auth.Tests/UnitConverter.Auth.Tests.csproj" />
   <Project Path="tests/UnitConverter.Api.Tests/UnitConverter.Api.Tests.csproj" />
-  <!-- BDD Tests temporarily disabled due to Reqnroll/net10 SDK compatibility issue -->
-  <!-- <Project Path="tests/UnitConverter.Bdd.Tests/UnitConverter.Bdd.Tests.csproj" /> -->
-  <Project Path="tests/UnitConverter.Load.Tests/UnitConverter.Load.Tests.csproj" />
-  
-  <!-- Performance/Benchmarks (1 total) -->
-  <Project Path="perf/UnitConverter.Benchmarks/UnitConverter.Benchmarks.csproj" />
+  <Project Path="tests/UnitConverter.Domain.Tests/UnitConverter.Domain.Tests.csproj" />
+  <Project Path="tests/UnitConverter.Infrastructure.Tests/UnitConverter.Infrastructure.Tests.csproj" />
+  <Project Path="tests/UnitConverter.Contracts.Tests/UnitConverter.Contracts.Tests.csproj" />
+
+  <!-- Tools -->
+  <Project Path="tools/UnitConverter.DbSetup/UnitConverter.DbSetup.csproj" />
 </Solution>

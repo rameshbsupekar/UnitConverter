@@ -1,0 +1,110 @@
+@host = http://localhost:5173
+@v1 = {{host}}/api/v1
+
+# UnitCategory enum: Length=1, Mass=2, Temperature=3 (wire: length, mass, weight→mass, temperature)
+
+### Convert length: 1000 m → km
+POST {{v1}}/unit-conversions
+Content-Type: application/json
+
+{
+  "value": 1000,
+  "fromUnit": "m",
+  "toUnit": "km",
+  "category": 1
+}
+
+### Convert temperature: 0 °C → °F
+POST {{v1}}/unit-conversions
+Content-Type: application/json
+
+{
+  "value": 0,
+  "fromUnit": "c",
+  "toUnit": "f",
+  "category": 3
+}
+
+### Convert mass: 1 kg → lb
+POST {{v1}}/unit-conversions
+Content-Type: application/json
+
+{
+  "value": 1,
+  "fromUnit": "kg",
+  "toUnit": "lb",
+  "category": 2
+}
+
+### Public catalog: list categories (no auth)
+GET {{v1}}/catalog/categories
+
+### Public catalog: list length units by id (from GET categories)
+GET {{v1}}/catalog/units?category=1&page=1&pageSize=20
+
+### Public catalog: list length units by name (no id required)
+GET {{v1}}/catalog/units?categoryName=length&page=1&pageSize=20
+
+### Public catalog: mass units (alias categoryName=weight)
+GET {{v1}}/catalog/units?categoryName=mass&page=1&pageSize=20
+
+# Unit definitions CRUD — full guide: docs/TEST-UNIT-DEFINITIONS-CRUD.md
+# 1) Sign in on 5180, 2) paste accessToken below, 3) run List → Create → Get → Update → Delete (Admin)
+@token = <paste-accessToken-from-sessions>
+@auth = http://localhost:5180/api/v1
+
+### Step 0 — Sign in as Admin (full CRUD including delete)
+# @name login
+POST {{auth}}/sessions
+Content-Type: application/json
+
+{
+  "email": "admin@unitconverter.local",
+  "password": "Test@12345"
+}
+
+### Unit definitions: list (requires token)
+GET {{v1}}/unit-definitions?page=1&pageSize=50
+Authorization: Bearer {{token}}
+
+### Unit definitions: create
+POST {{v1}}/unit-definitions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "symbol": "mi",
+  "displayName": "Mile",
+  "category": 1,
+  "multiplierToBase": 1609.344,
+  "offsetToBase": 0
+}
+
+### Unit definitions: admin correction (Admin role only)
+PUT {{v1}}/unit-definitions/1/admin-correction
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "displayName": "Meter (verified)",
+  "multiplierToBase": 1,
+  "offsetToBase": 0
+}
+
+### Unit definitions: update (replace id)
+PUT {{v1}}/unit-definitions/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "displayName": "Meter",
+  "multiplierToBase": 1,
+  "offsetToBase": 0
+}
+
+### Unit definitions: delete (replace id; Admin only)
+DELETE {{v1}}/unit-definitions/99
+Authorization: Bearer {{token}}
+
+### OpenAPI document (Development)
+GET {{host}}/openapi/v1.json

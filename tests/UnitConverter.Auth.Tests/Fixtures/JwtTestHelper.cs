@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 
-namespace UnitConverter.Auth.Tests.Fixtures;
+namespace UnitConverter.UserManagement.Api.Tests.Fixtures;
 
 /// <summary>
 /// Helper class for JWT token assertions and inspection.

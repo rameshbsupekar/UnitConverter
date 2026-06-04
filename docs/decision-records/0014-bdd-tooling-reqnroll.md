@@ -49,9 +49,9 @@ tests/
 │   ├── Hooks/
 │   │   └── Hooks.cs                  (setup/teardown)
 │   └── appsettings.json              (test config)
-├── UnitConverter.Domain.Tests/
+├── UnitConverter.UnitsDefinitions.Tests/
 ├── UnitConverter.Application.Tests/
-├── UnitConverter.Api.Tests/
+├── UnitConverter.UnitsDefinitions.Api.Tests/
 └── UnitConverter.Load.Tests/
 ```
 

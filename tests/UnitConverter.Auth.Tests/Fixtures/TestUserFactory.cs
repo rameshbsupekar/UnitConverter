@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnitConverter.Auth.Core.Domain.Entities;
-using UnitConverter.Auth.Core.Domain.ValueObjects;
+using UnitConverter.UserManagement.Core.Domain.Entities;
+using UnitConverter.UserManagement.Core.Domain.ValueObjects;
 
-namespace UnitConverter.Auth.Tests.Fixtures;
+namespace UnitConverter.UserManagement.Api.Tests.Fixtures;
 
 /// <summary>
 /// Factory for creating test User objects with sensible defaults.

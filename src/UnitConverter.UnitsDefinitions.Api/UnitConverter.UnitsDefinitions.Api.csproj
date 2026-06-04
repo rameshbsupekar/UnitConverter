@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>UnitConverter.UnitsDefinitions.Api</RootNamespace>
+    <AssemblyName>UnitConverter.UnitsDefinitions.Api</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.14.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UnitConverter.UnitsDefinitions.DataAccess\UnitConverter.UnitsDefinitions.DataAccess.csproj" />
+    <ProjectReference Include="..\UnitConverter.UnitsDefinitions\UnitConverter.UnitsDefinitions.csproj" />
+    <ProjectReference Include="..\UnitConverter.UnitsDefinitions.Contracts\UnitConverter.UnitsDefinitions.Contracts.csproj" />
+    <ProjectReference Include="..\UnitConverter.UserManagement.Contracts\UnitConverter.UserManagement.Contracts.csproj" />
+    <ProjectReference Include="..\UnitConverter.Common\UnitConverter.Common.csproj" />
+    <ProjectReference Include="..\UnitConverter.Common.Contracts\UnitConverter.Common.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

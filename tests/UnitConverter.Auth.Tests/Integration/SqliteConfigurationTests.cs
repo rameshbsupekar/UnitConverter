@@ -1,14 +1,16 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using UnitConverter.Auth.Core.Domain.Entities;
-using UnitConverter.Auth.Core.Domain.ValueObjects;
-using UnitConverter.Auth.Infrastructure.Data;
+using UnitConverter.UserManagement.Core.Domain.Entities;
+using UnitConverter.UserManagement.Core.Domain.ValueObjects;
+using UnitConverter.UserManagement.DataAccess.Data;
 
-namespace UnitConverter.Auth.Tests.Integration;
+namespace UnitConverter.UserManagement.Api.Tests.Integration;
 
 /// <summary>
 /// Integration tests for SQLite configuration and local development setup.
@@ -31,6 +33,7 @@ public class SqliteConfigurationTests
     [TestCleanup]
     public void Cleanup()
     {
+        SqliteConnection.ClearAllPools();
         if (Directory.Exists(_testDataFolder))
         {
             Directory.Delete(_testDataFolder, recursive: true);
@@ -70,7 +73,7 @@ public class SqliteConfigurationTests
     }
 
     [TestMethod]
-    public async Task GivenSqliteDatabase_WhenCallingMigrateAsync_ThenTablesAreCreated()
+    public async Task GivenSqliteDatabase_WhenCallingEnsureCreatedAsync_ThenTablesAreCreated()
     {
         // Arrange
         Directory.CreateDirectory(_testDataFolder);
@@ -80,9 +83,9 @@ public class SqliteConfigurationTests
             .UseSqlite(connectionString)
             .Options;
 
-        // Act
+        // Act — MVP uses EnsureCreated (EF migrations added later)
         await using var context = new AuthDbContext(options);
-        await context.Database.MigrateAsync();
+        await context.Database.EnsureCreatedAsync();
 
         // Assert - verify tables exist by inserting data
         var user = User.Create(
@@ -140,11 +143,12 @@ public class SqliteConfigurationTests
     [TestMethod]
     public async Task GivenSqliteInMemoryDatabase_WhenUsingSharedConnection_ThenDataPersistsAcrossContexts()
     {
-        // Arrange - in-memory SQLite requires shared connection for data to persist
-        var connectionString = "Data Source=:memory:";
-        
+        // Arrange — keep one open connection so :memory: is shared across contexts
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
         var options = new DbContextOptionsBuilder<AuthDbContext>()
-            .UseSqlite(connectionString)
+            .UseSqlite(connection)
             .Options;
 
         var user = User.Create(
@@ -155,16 +159,19 @@ public class SqliteConfigurationTests
             organizationName: "Temp Org",
             passwordHash: "hashed_password");
 
-        // Act & Assert - in-memory creates fresh DB per context, but EnsureCreatedAsync sets up schema
-        await using var context = new AuthDbContext(options);
-        await context.Database.EnsureCreatedAsync();
+        await using (var context = new AuthDbContext(options))
+        {
+            await context.Database.EnsureCreatedAsync();
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+        }
 
-        context.Users.Add(user);
-        await context.SaveChangesAsync();
-
-        var savedUser = await context.Users.FirstOrDefaultAsync(u => u.Id == user.Id);
-        savedUser.Should().NotBeNull();
-        savedUser!.Email.Value.Should().Be("memory@example.com");
+        await using (var context = new AuthDbContext(options))
+        {
+            var savedUser = await context.Users.FirstOrDefaultAsync(u => u.Id == user.Id);
+            savedUser.Should().NotBeNull();
+            savedUser!.Email.Value.Should().Be("memory@example.com");
+        }
     }
 
     [TestMethod]
@@ -205,12 +212,12 @@ public class SqliteConfigurationTests
         // Second insert with duplicate email should fail due to unique index
         await using (var context = new AuthDbContext(options))
         {
+            await context.Database.EnsureCreatedAsync();
             context.Users.Add(user2);
             var exception = await Assert.ThrowsExceptionAsync<DbUpdateException>(
                 async () => await context.SaveChangesAsync());
 
-            exception.Should().NotBeNull();
-            exception?.Message.Should().Contain("UNIQUE constraint failed", "Email index should enforce uniqueness");
+            AssertUniqueConstraint(exception);
         }
     }
 
@@ -280,12 +287,12 @@ public class SqliteConfigurationTests
         // Duplicate role name should fail due to unique index
         await using (var context = new AuthDbContext(options))
         {
+            await context.Database.EnsureCreatedAsync();
             context.Roles.Add(role2);
             var exception = await Assert.ThrowsExceptionAsync<DbUpdateException>(
                 async () => await context.SaveChangesAsync());
 
-            exception.Should().NotBeNull();
-            exception?.Message.Should().Contain("UNIQUE constraint failed", "Role name index should enforce uniqueness");
+            AssertUniqueConstraint(exception);
         }
     }
 
@@ -300,17 +307,24 @@ public class SqliteConfigurationTests
             .UseSqlite(connectionString)
             .Options;
 
-        var userId = UserId.Create(1);
+        var user = User.Create(
+            userId: 1,
+            email: "jwt-index@example.com",
+            firstName: "Jwt",
+            lastName: "User",
+            organizationName: "Org",
+            passwordHash: "hash");
+
         var token1 = RefreshToken.Create(
             id: 1,
-            userId: userId,
+            userId: user.Id,
             jwtId: "unique-jwt-id-123",
             tokenValue: "token_value_1",
             expiresAt: DateTime.UtcNow.AddDays(7));
 
         var token2 = RefreshToken.Create(
             id: 2,
-            userId: userId,
+            userId: user.Id,
             jwtId: "unique-jwt-id-123",
             tokenValue: "token_value_2",
             expiresAt: DateTime.UtcNow.AddDays(7));
@@ -319,6 +333,8 @@ public class SqliteConfigurationTests
         await using (var context = new AuthDbContext(options))
         {
             await context.Database.EnsureCreatedAsync();
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
             context.RefreshTokens.Add(token1);
             await context.SaveChangesAsync();
         }
@@ -326,12 +342,19 @@ public class SqliteConfigurationTests
         // Duplicate JWT ID should fail
         await using (var context = new AuthDbContext(options))
         {
+            await context.Database.EnsureCreatedAsync();
             context.RefreshTokens.Add(token2);
             var exception = await Assert.ThrowsExceptionAsync<DbUpdateException>(
                 async () => await context.SaveChangesAsync());
 
-            exception.Should().NotBeNull();
+            AssertUniqueConstraint(exception);
         }
+    }
+
+    private static void AssertUniqueConstraint(DbUpdateException exception)
+    {
+        var message = exception.InnerException?.Message ?? exception.Message;
+        message.Should().Contain("UNIQUE");
     }
 
     [TestMethod]
@@ -364,7 +387,8 @@ public class SqliteConfigurationTests
         // Assert - read with different connection should work
         await using (var context = new AuthDbContext(options))
         {
-            var foundUser = await context.Users.FirstOrDefaultAsync(u => u.Email.Value == "shared@example.com");
+            var users = await context.Users.ToListAsync();
+            var foundUser = users.FirstOrDefault(u => u.Email.Value == "shared@example.com");
             foundUser.Should().NotBeNull("Cache=Shared should allow data persistence across connections");
         }
     }

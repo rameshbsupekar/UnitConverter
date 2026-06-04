@@ -353,6 +353,14 @@ ASALocalRun/
 # BeatPulse healthcheck temp database
 healthchecksdb
 
+# Local tool restore cache
+.tools/
+
+# Local SQLite databases (repo Data/ folder)
+Data/**/*.db
+Data/**/*.db-shm
+Data/**/*.db-wal
+
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
 MigrationBackup/
 

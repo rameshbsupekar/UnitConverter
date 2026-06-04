@@ -1,6 +1,7 @@
 using System.Text.Json;
-using UnitConverter.Contracts.Auth.Commands;
-using UnitConverter.Contracts.Auth.Responses;
+using UnitConverter.UserManagement.Contracts.Requests;
+using UnitConverter.UserManagement.Contracts.Responses;
+using UnitConverter.Common.Contracts.Responses;
 using Xunit;
 
 namespace UnitConverter.Contracts.Tests.Auth;
@@ -14,20 +15,21 @@ public class RecordSerializationTests
     };
 
     [Fact]
-    public void RegisterUserCommand_SerializesAndDeserializesCorrectly()
+    public void RegisterUserRequest_SerializesAndDeserializesCorrectly()
     {
         // Arrange
-        var command = new RegisterUserCommand(
+        var command = new RegisterUserRequest(
             Email: "user@example.com",
             Password: "SecurePassword123!",
             FirstName: "John",
             LastName: "Doe",
-            OrganizationName: "ACME Corp"
+            OrganizationName: "ACME Corp",
+            IdempotencyKey: Guid.NewGuid().ToString()
         );
 
         // Act
         string json = JsonSerializer.Serialize(command, _jsonOptions);
-        var deserialized = JsonSerializer.Deserialize<RegisterUserCommand>(json, _jsonOptions);
+        var deserialized = JsonSerializer.Deserialize<RegisterUserRequest>(json, _jsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);
@@ -36,20 +38,21 @@ public class RecordSerializationTests
         Assert.Equal(command.FirstName, deserialized.FirstName);
         Assert.Equal(command.LastName, deserialized.LastName);
         Assert.Equal(command.OrganizationName, deserialized.OrganizationName);
+        Assert.Equal(command.IdempotencyKey, deserialized.IdempotencyKey);
     }
 
     [Fact]
-    public void LoginCommand_SerializesAndDeserializesCorrectly()
+    public void LoginRequest_SerializesAndDeserializesCorrectly()
     {
         // Arrange
-        var command = new LoginCommand(
+        var command = new LoginRequest(
             Email: "user@example.com",
             Password: "SecurePassword123!"
         );
 
         // Act
         string json = JsonSerializer.Serialize(command, _jsonOptions);
-        var deserialized = JsonSerializer.Deserialize<LoginCommand>(json, _jsonOptions);
+        var deserialized = JsonSerializer.Deserialize<LoginRequest>(json, _jsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);
@@ -61,12 +64,13 @@ public class RecordSerializationTests
     public void UserResponse_SerializesAndDeserializesCorrectly()
     {
         // Arrange
-        var userId = Guid.NewGuid();
         var response = new UserResponse(
-            Id: userId,
+            Id: 1001,
             Email: "user@example.com",
             FirstName: "John",
             LastName: "Doe",
+            OrganizationName: "ACME Corp",
+            CreatedAt: DateTime.UtcNow,
             Roles: ["Admin", "User"]
         );
 
@@ -80,6 +84,8 @@ public class RecordSerializationTests
         Assert.Equal(response.Email, deserialized.Email);
         Assert.Equal(response.FirstName, deserialized.FirstName);
         Assert.Equal(response.LastName, deserialized.LastName);
+        Assert.Equal(response.OrganizationName, deserialized.OrganizationName);
+        Assert.Equal(response.CreatedAt, deserialized.CreatedAt);
         Assert.Equal(response.Roles, deserialized.Roles);
     }
 
@@ -135,16 +141,16 @@ public class RecordSerializationTests
     }
 
     [Fact]
-    public void RefreshTokenCommand_SerializesAndDeserializesCorrectly()
+    public void RefreshTokenRequest_SerializesAndDeserializesCorrectly()
     {
         // Arrange
-        var command = new RefreshTokenCommand(
+        var command = new RefreshTokenRequest(
             RefreshToken: "refresh_token_value"
         );
 
         // Act
         string json = JsonSerializer.Serialize(command, _jsonOptions);
-        var deserialized = JsonSerializer.Deserialize<RefreshTokenCommand>(json, _jsonOptions);
+        var deserialized = JsonSerializer.Deserialize<RefreshTokenRequest>(json, _jsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);

@@ -1,111 +1,225 @@
-# UnitConverter API & Management System
+# Unit Conversion API
 
-> **Read-write unit conversion service** — extensible ASP.NET Core REST API + internal web dashboard for employees to submit and admins to verify new units — built with Clean Architecture, TDD, BDD, and designed for cloud scale.
+ASP.NET Core REST API that converts numeric values between units of measurement (length, temperature, and weight/mass). Built for a real-world, team-maintainable structure with clean architecture and automated tests.
 
-UnitConverter is a **learning-grade-but-production-shaped** system with two surfaces:
-- **Public REST API** — stateless, reads approved units, converts between them
-- **Internal web app** (Razor Pages + web components) — employees submit new units, admins review & approve
+## Prerequisites
 
-The conversion logic lives in a framework-independent domain, exercised by automated tests from
-day one (TDD + BDD). Both API and web UI share the same domain and persistence layer (swappable
-across SQLite / SQL Server / PostgreSQL). Security, logging, and telemetry are baked in (C#
-interceptors for clean separation, OpenTelemetry + Aspire dashboard for local review).
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) (preview; this solution targets `net10.0`)
+- Optional: [Visual Studio 2022](https://visualstudio.microsoft.com/) or VS Code with C# Dev Kit
 
----
+## Run locally
 
-## Repository description (for Git / GitHub "About")
+**Full steps (database setup, both services, seed users):** see **[`docs/ASPIRE-DEV-GUIDE.md`](docs/ASPIRE-DEV-GUIDE.md)**.
 
-Use this as the GitHub **About** blurb (short, ≤ 120 chars, no trailing period — GitHub style):
+**Manual testing:** [docs/TEST-SETUP.md](docs/TEST-SETUP.md) → [docs/TEST-E2E.md](docs/TEST-E2E.md) (full flow). Focused: [catalog/conversions](docs/TEST-CATALOG-AND-UNIT-CONVERSIONS.md) · [auth](docs/TEST-USER-MANAGEMENT-API.md) · [unit CRUD](docs/TEST-UNIT-DEFINITIONS-CRUD.md).
 
+From the repository root:
+
+```powershell
+dotnet restore
+dotnet build
+.\scripts\database\setup-local.ps1
 ```
-Extensible unit converter REST API in ASP.NET Core — Clean Architecture, TDD & BDD
+
+Then start **User Management** and **Units Definitions** APIs in two terminals:
+
+```powershell
+dotnet run --project src/UnitConverter.UserManagement.Api
+dotnet run --project src/UnitConverter.UnitsDefinitions.Api
 ```
 
-Suggested **topics/tags**: `aspnetcore` `rest-api` `clean-architecture` `tdd` `bdd`
-`reqnroll` `mstest` `csharp` `dotnet` `unit-conversion`
+| Service | HTTPS | HTTP |
+|---------|-------|------|
+| Conversion API | https://localhost:7100 | http://localhost:5173 |
+| User management (auth, JWT) | https://localhost:7180 | http://localhost:5180 |
 
-Longer one-line variant (for `<description>` in docs or NuGet):
+**Service boundaries (no duplicate hosts):**
 
-> UnitConverter API — extensible ASP.NET Core REST API for converting values across Length,
-> Temperature, Weight, and future unit categories, built with Clean Architecture, TDD, and BDD.
+| Host (5180 / 7180) | Host (5173 / 7100) |
+|--------------------|--------------------|
+| `POST /api/v1/users`, `/sessions`, `/sessions/refresh` only | `GET /catalog/*`, `POST /unit-conversions`, `GET|POST|PUT|DELETE /unit-definitions` |
+| No categories, units, or conversion routes | No users/sessions routes |
 
----
+Log in on **5180**, then call admin routes on **5173** with the JWT `Authorization: Bearer …` header.
 
-## Initial supported categories
+SQLite files live under **`Data/`** (outside `src/`): `Data/UserManagement/auth.db`, `Data/UnitsMaster/catalog.db`. Schema is applied via **EF Core migrations** before you run the apps—not on first HTTP request.
 
-| Category    | Base unit | Example units                          | Conversion style          |
-|-------------|-----------|----------------------------------------|---------------------------|
-| Length      | metre     | mm, cm, m, km, inch, foot, mile        | Linear factor             |
-| Weight/Mass | kilogram  | mg, g, kg, tonne, ounce, pound         | Linear factor             |
-| Temperature | kelvin    | Celsius, Fahrenheit, Kelvin            | Affine (offset + scale)   |
+### API documentation (Development)
 
-> The model supports **any number** of categories and units. Adding a new unit is a **form submission + admin approval**, then it's live in the API (no code change).
+Scalar is registered only when `ASPNETCORE_ENVIRONMENT=Development` (see each API `Program.cs`).
 
-## Features
+| Service | Scalar UI | OpenAPI JSON |
+|---------|-----------|----------------|
+| Units & conversion | http://localhost:5173/scalar/v1 | http://localhost:5173/openapi/v1.json |
+| User management | http://localhost:5180/scalar/v1 | http://localhost:5180/openapi/v1.json |
 
-| Aspect | v1 capabilities |
-|--------|-----------------|
-| **API** | `POST /api/conversions` (convert), `GET /api/units` (list approved), `POST /api/units` (submit), `PUT /api/units/{id}/approve` (admin) |
-| **Web UI** | Razor Pages + web components; employee form, admin approval queue, public catalog view |
-| **Authorization** | ASP.NET Identity roles (Public, Employee, Partner, Admin); policy-based `[Authorize]` gates; Owner-based editing (employees/partners can only edit own submissions); Partner API keys (Bearer token) for programmatic access |
-| **Persistence** | EF Core + Repository pattern; SQLite locally, SQL Server / PostgreSQL in cloud |
-| **Logging & telemetry** | C# interceptors (source generator) + OpenTelemetry traces/metrics → Aspire dashboard locally |
-| **Security** | OWASP Top 10 baseline, dependency scanning, pen testing (DAST), BDD security scenarios |
-| **Cloud-ready** | stateless, horizontally scalable behind LB, health checks, multi-DB support, Aspire manifests for ACA/AKS/K8s |
+**Opening the browser:** `launchBrowser` in `Properties/launchSettings.json` is used by **Visual Studio / VS Code F5** and **`dotnet watch run`**, not plain **`dotnet run`** (CLI does not launch a browser by design). To auto-open docs from the terminal:
 
-## Architecture goals
+```powershell
+dotnet watch run --project src/UnitConverter.UnitsDefinitions.Api --launch-profile http
+```
 
-- Keep **domain logic independent** of ASP.NET Core (testable without a web host).
-- Support **future unit categories** without modifying API endpoints.
-- Use **automated tests from the start** (unit, integration, and behaviour specs).
-- Provide **REST endpoints** consumable by web, JavaScript, mobile, and desktop clients.
-- **Enforce professional code practices** — SOLID (extensibility), DRY (maintainability), CQRS (clarity), KISS (sustainability).
+Or open the Scalar URL above manually after `dotnet run`.
 
-## Tech stack
+### Try the API (no login)
 
-- **Runtime / API:** ASP.NET Core (`net10.0`), OpenAPI
-- **Web UI:** Razor Pages + modern web components (Lit/Shoelace, no npm build required)
-- **Authorization:** ASP.NET Core Identity + policy-based
-- **Architecture:** Clean Architecture (Domain → Application → Infrastructure → Api/Web)
-- **Unit tests:** MSTest + **Moq**
-- **Integration tests:** `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory`)
-- **BDD:** **Reqnroll** (maintained successor to SpecFlow) + `Reqnroll.MsTest` (security + feature scenarios)
-- **Coverage:** coverlet + ReportGenerator
-- **Observability:** OpenTelemetry (traces/metrics/logs) → OTLP → **.NET Aspire dashboard** (local review)
-- **Logging:** **C# interceptors** (built-in stable compiler feature, .NET 9+, source generator) + structured `ILogger` + correlation ids
-- **Caching:** `HybridCache`/`IMemoryCache` + output caching for approved catalog (L2 Redis ready)
-- **Performance tests:** BenchmarkDotNet (micro) + NBomber/k6 (load/stress/spike/soak)
-- **Security:** SAST (SecurityCodeScan + NetAnalyzers) + SCA (Dependabot) + DAST (OWASP ZAP) + BDD security scenarios
-- **Persistence:** EF Core 9+ with Repository pattern; swappable DB (SQLite / SQL Server / PostgreSQL / Oracle)
-
-## Documentation
-
-| Doc | Purpose |
-|-----|---------|
-| [`docs/HLD.md`](docs/HLD.md) | High-Level Design — context, layers, request flow, quality attributes |
-| [`docs/LLD.md`](docs/LLD.md) | Low-Level Design — types, interfaces, conversion algorithms, API contract |
-| [`docs/PLAN.md`](docs/PLAN.md) | Milestone-by-milestone TDD/BDD build path |
-| [`docs/decision-records/`](docs/decision-records/) | Architecture Decision Records (ADRs) |
-
-## Getting started
+**List categories**
 
 ```bash
-# Restore & build
-dotnet build
+curl -s http://localhost:5173/api/v1/catalog/categories
+```
 
-# Run the API
-dotnet run --project src/UnitConverter.Api
+**List units in a category** (by name or id `1` = length, `2` = mass, `3` = temperature)
 
-# Run all tests
+```bash
+curl -s "http://localhost:5173/api/v1/catalog/units?categoryName=length&page=1&pageSize=20"
+```
+
+**Convert length (meters → kilometers)**
+
+```bash
+curl -s -X POST http://localhost:5173/api/v1/unit-conversions ^
+  -H "Content-Type: application/json" ^
+  -d "{\"value\":1000,\"fromUnit\":\"m\",\"toUnit\":\"km\",\"category\":1}"
+```
+
+`category` is optional if `fromUnit` is unique in the catalog.
+
+In Visual Studio / Rider, open `src/UnitConverter.UnitsDefinitions.Api/UnitConverter.API.http` for ready-made requests.
+
+## API summary
+
+### Conversion API (`UnitConverter.UnitsDefinitions.Api` — http://localhost:5173)
+
+Public (no JWT): catalog and conversion. Admin routes require JWT (login on port 5180).
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/api/v1/catalog/categories` | List categories (id + name) |
+| `GET` | `/api/v1/catalog/units` | List approved units (`category` or `categoryName`, paging) |
+| `POST` | `/api/v1/unit-conversions` | Convert a value between two units |
+| `GET` | `/api/v1/unit-definitions` | List unit definitions (**Admin**, **Employee**, or **Partner**) |
+| `POST` | `/api/v1/unit-definitions` | Create a unit definition (**Admin**, **Employee**, or **Partner**; non-Admin → pending approval) |
+| `PUT` | `/api/v1/unit-definitions/{id}` | Update display name and factor (**Admin**, **Employee**, or **Partner**) |
+| `PUT` | `/api/v1/unit-definitions/{id}/approve` | Approve pending unit (**Admin** only) |
+| `PUT` | `/api/v1/unit-definitions/{id}/reject` | Reject pending unit (**Admin** only) |
+| `PUT` | `/api/v1/unit-definitions/{id}/admin-correction` | Admin correction regardless of submitter (**Admin** only) |
+| `DELETE` | `/api/v1/unit-definitions/{id}` | Delete a unit definition (**Admin** only) |
+
+### User management API (`UnitConverter.UserManagement.Api` — https://localhost:7180 / http://localhost:5180)
+
+**Auth only** — this service does not expose catalog, conversion, or unit master-data endpoints.
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/api/v1/users` | Register a user account |
+| `POST` | `/api/v1/sessions` | Sign in (JWT + refresh token) |
+| `POST` | `/api/v1/sessions/refresh` | Refresh access token |
+
+### Request body (`POST /api/v1/unit-conversions`)
+
+```json
+{
+  "value": 1000,
+  "fromUnit": "m",
+  "toUnit": "km",
+  "category": 1
+}
+```
+
+Category ids: `1` = length, `2` = mass, `3` = temperature.
+
+### Success response (`200 OK`)
+
+```json
+{
+  "value": 1,
+  "symbol": "km"
+}
+```
+
+`symbol` is the target unit from the request (`toUnit`); input units are not repeated in the response.
+
+Errors use RFC 7807 `ProblemDetails` (`type`, `title`, `detail`, `status`).
+
+## Supported units (MVP)
+
+Units are seeded by `.\scripts\database\setup-local.ps1` (see `UnitCatalogSeedData` in `UnitConverter.UnitsDefinitions.DataAccess`). Symbols are **case-insensitive**.
+
+Development users (password `Test@12345`): `admin@unitconverter.local`, `employee@unitconverter.local`, `partner@unitconverter.local`, `public@unitconverter.local`.
+
+| Category | Units |
+|----------|--------|
+| **Length** | `m`, `km`, `cm`, `ft`, `in` |
+| **Weight** | `kg`, `g`, `lb`, `oz` |
+| **Temperature** | `c`, `f`, `k` |
+
+Temperature uses affine conversion (not simple factors). Length and weight convert via a base unit and linear factors.
+
+## Solution structure
+
+Two vertical slices under `src/`, plus shared libraries and `Data/` for SQLite files only:
+
+```
+Data/                                      ← databases only (gitignored .db)
+  UserManagement/auth.db
+  UnitsMaster/catalog.db
+
+src/
+  UnitConverter.Common/
+  UnitConverter.Common.Contracts/
+
+  UnitConverter.UserManagement/              ← domain + application (business)
+  UnitConverter.UserManagement.Contracts/
+  UnitConverter.UserManagement.DataAccess/   ← EF auth DB + migrations
+  UnitConverter.UserManagement.Api/          ← identity, JWT, auth endpoints
+
+  UnitConverter.UnitsDefinitions/            ← conversion engine + catalog rules
+  UnitConverter.UnitsDefinitions.Contracts/
+  UnitConverter.UnitsDefinitions.DataAccess/ ← EF catalog DB + migrations
+  UnitConverter.UnitsDefinitions.Api/        ← conversion + catalog + admin APIs
+
+tests/
+  UnitConverter.Auth.Tests/                  → assembly: UserManagement.Api.Tests
+  UnitConverter.Api.Tests/                   → assembly: UnitsDefinitions.Api.Tests
+  UnitConverter.Domain.Tests/
+  UnitConverter.Infrastructure.Tests/
+  UnitConverter.Contracts.Tests/
+
+tools/UnitConverter.DbSetup/                 ← migrate + seed (setup-local.ps1)
+```
+
+## Design decisions and trade-offs
+
+| Decision | Rationale |
+|----------|-----------|
+| **Clean Architecture** | Domain has zero dependency on ASP.NET or EF; conversion logic is unit-tested without a web host. |
+| **EF migrations + setup script** | Schema in source control; local DB created before APIs run. Seed via `DbSetup`, not on every app startup. |
+| **`decimal` for values** | Avoids floating-point drift on financial-grade conversions; temperature round-trips are tested in domain tests. |
+| **Single conversion endpoint** | Matches the challenge; catalog `GET` is optional for discoverability. |
+| **.NET 10** | Latest SDK in use; pin to `net9.0` in `Directory.Build.props` if reviewers need only stable LTS. |
+
+## Tests
+
+```bash
 dotnet test
 ```
 
-> The target solution layout (`src/` + `tests/`) is described in
-> [`docs/HLD.md`](docs/HLD.md). The repository currently contains the scaffolded
-> `UnitConverter.API` and an empty `UnitConverter.Domain`; see
-> [`docs/PLAN.md`](docs/PLAN.md) Milestone 0 for the migration steps.
+- **Domain.Tests** — conversion engine (length, temperature).
+- **Api.Tests** — HTTP integration via `WebApplicationFactory`.
+- **Contracts / Infrastructure / Auth.Tests** — contracts and supporting services.
+
+## Further documentation
+
+| Doc | Purpose |
+|-----|---------|
+| [`docs/ASPIRE-DEV-GUIDE.md`](docs/ASPIRE-DEV-GUIDE.md) | **Local dev: DB setup, run both APIs, migrations** |
+| [`Data/README.md`](Data/README.md) | SQLite paths and reset |
+| [`docs/HLD.md`](docs/HLD.md) | Services, roles, endpoints |
+| [`docs/DATABASE-SCHEMA.md`](docs/DATABASE-SCHEMA.md) | Tables and migration folders |
+| [`docs/MVP.md`](docs/MVP.md) | Challenge scope vs future features |
+| [`docs/CODE-STANDARDS.md`](docs/CODE-STANDARDS.md) | C# conventions |
 
 ## License
 
-MIT / Apache 2.0 open-source (.NET Foundation / community libraries).
-See [`DEPENDENCIES.md`](DEPENDENCIES.md) for full list.
+See repository settings (add a license file if publishing to GitHub).

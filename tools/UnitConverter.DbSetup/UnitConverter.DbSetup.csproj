@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>UnitConverter.DbSetup</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\UnitConverter.UserManagement.DataAccess\UnitConverter.UserManagement.DataAccess.csproj" />
+    <ProjectReference Include="..\..\src\UnitConverter.UnitsDefinitions.DataAccess\UnitConverter.UnitsDefinitions.DataAccess.csproj" />
+    <ProjectReference Include="..\..\src\UnitConverter.Common\UnitConverter.Common.csproj" />
+  </ItemGroup>
+
+</Project>

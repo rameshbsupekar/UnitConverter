@@ -1,0 +1,39 @@
+@host = http://localhost:5180
+@v1 = {{host}}/api/v1
+
+# Seeded users (after .\scripts\database\setup-local.ps1): password Test@12345
+# admin@unitconverter.local | employee@unitconverter.local | partner@unitconverter.local | public@unitconverter.local
+
+### Sign in (returns accessToken + refreshToken)
+# @name login
+POST {{v1}}/sessions
+Content-Type: application/json
+
+{
+  "email": "employee@unitconverter.local",
+  "password": "Test@12345"
+}
+
+### Refresh access token (use refreshToken from login response)
+# POST {{v1}}/sessions/refresh
+# Content-Type: application/json
+#
+# {
+#   "refreshToken": "<paste-refresh-token>"
+# }
+
+### Register new user (all fields required; password min 12 chars + upper/lower/digit/special)
+POST {{v1}}/users
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "TestUser@12345",
+  "firstName": "Ramesh",
+  "lastName": "Supekar",
+  "organizationName": "TestOrg",
+  "idempotencyKey": "1af9f554-bc99-4960-a2a0-5e6b8fa703ad"
+}
+
+### Health
+GET {{host}}/health

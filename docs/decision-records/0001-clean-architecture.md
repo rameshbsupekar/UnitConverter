@@ -13,7 +13,7 @@ want the conversion logic testable from the first commit (TDD/BDD).
 
 Adopt **Clean Architecture** with four layers and inward-only dependencies:
 `Domain ← Application ← Infrastructure/Api`. Conversion logic lives in a framework-free
-`UnitConverter.Domain`; the ASP.NET Core project is a thin adapter (composition root).
+`UnitConverter.UnitsDefinitions`; the ASP.NET Core project is a thin adapter (composition root).
 
 ## Rationale
 

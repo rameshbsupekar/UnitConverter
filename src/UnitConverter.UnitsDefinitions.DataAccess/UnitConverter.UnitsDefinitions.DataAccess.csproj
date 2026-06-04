@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>UnitConverter.UnitsDefinitions.DataAccess</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="UnitConverter.DbSetup" />
+    <InternalsVisibleTo Include="UnitConverter.UnitsDefinitions.Api.Tests" />
+    <InternalsVisibleTo Include="UnitConverter.UnitsDefinitions.DataAccess.Tests" />
+    <InternalsVisibleTo Include="UnitConverter.Infrastructure.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UnitConverter.Common\UnitConverter.Common.csproj" />
+    <ProjectReference Include="..\UnitConverter.UnitsDefinitions\UnitConverter.UnitsDefinitions.csproj" />
+    <ProjectReference Include="..\UnitConverter.UnitsDefinitions.Contracts\UnitConverter.UnitsDefinitions.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

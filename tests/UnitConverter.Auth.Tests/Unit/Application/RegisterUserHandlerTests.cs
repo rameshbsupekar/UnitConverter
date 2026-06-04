@@ -1,18 +1,18 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using FluentValidation;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
-using UnitConverter.Auth.Application.Commands;
-using UnitConverter.Auth.Application.DTOs;
-using UnitConverter.Auth.Application.Handlers;
-using UnitConverter.Auth.Common.Interfaces;
-using UnitConverter.Auth.Core.Domain.Entities;
-using UnitConverter.Auth.Core.Domain.Exceptions;
-using UnitConverter.Auth.Core.Domain.ValueObjects;
-using UnitConverter.Auth.Tests.Fixtures;
+using UnitConverter.UserManagement.Contracts.Requests;
+using UnitConverter.UserManagement.Api.Tests.TestHelpers;
+using UnitConverter.UserManagement.Application.Handlers;
+using UnitConverter.UserManagement.Common.Interfaces;
+using UnitConverter.UserManagement.Core.Domain.Entities;
+using UnitConverter.UserManagement.Core.Domain.Exceptions;
+using UnitConverter.UserManagement.Core.Domain.ValueObjects;
+using UnitConverter.UserManagement.Api.Tests.Fixtures;
 
-namespace UnitConverter.Auth.Tests.Unit.Application;
+namespace UnitConverter.UserManagement.Api.Tests.Unit.Application;
 
 /// <summary>
 /// BDD-organized tests for RegisterUserCommandHandler.
@@ -27,7 +27,7 @@ public class RegisterUserHandlerTests
 {
     private Mock<IUserRepository> _mockUserRepository = null!;
     private Mock<IPasswordHasher> _mockPasswordHasher = null!;
-    private Mock<IValidator<RegisterUserCommand>> _mockValidator = null!;
+    private Mock<IValidator<RegisterUserRequest>> _mockValidator = null!;
     private Mock<Microsoft.Extensions.Logging.ILogger<RegisterUserCommandHandler>> _mockLogger = null!;
     private RegisterUserCommandHandler _handler = null!;
 
@@ -36,7 +36,7 @@ public class RegisterUserHandlerTests
     {
         _mockUserRepository = new Mock<IUserRepository>();
         _mockPasswordHasher = new Mock<IPasswordHasher>();
-        _mockValidator = new Mock<IValidator<RegisterUserCommand>>();
+        _mockValidator = new Mock<IValidator<RegisterUserRequest>>();
         _mockLogger = new Mock<Microsoft.Extensions.Logging.ILogger<RegisterUserCommandHandler>>();
 
         // Setup default mock behavior
@@ -49,7 +49,7 @@ public class RegisterUserHandlerTests
             .Returns("hashed_password_bcrypt_12345678901");
 
         _mockValidator
-            .Setup(v => v.ValidateAsync(It.IsAny<RegisterUserCommand>(), default))
+            .Setup(v => v.ValidateAsync(It.IsAny<RegisterUserRequest>(), default))
             .ReturnsAsync(new FluentValidation.Results.ValidationResult());
 
         _handler = new RegisterUserCommandHandler(
@@ -65,15 +65,12 @@ public class RegisterUserHandlerTests
     public async Task HandleAsync_ValidCommand_CreatesUserSuccessfully()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "john@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME Corp",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "john@example.com",
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME Corp");
 
         _mockUserRepository.Setup(r => r.EmailExistsAsync(It.IsAny<Email>()))
             .ReturnsAsync(false);
@@ -92,21 +89,18 @@ public class RegisterUserHandlerTests
     public async Task HandleAsync_ValidCommand_ReturnsUserResponseWithAllFields()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "jane@example.com",
-            Password = "ValidPass123!@#",
-            FirstName = "Jane",
-            LastName = "Smith",
-            OrganizationName = "TechCorp",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "jane@example.com",
+            password: "ValidPass123!@#",
+            firstName: "Jane",
+            lastName: "Smith",
+            organizationName: "TechCorp");
 
         // Act
         var response = await _handler.HandleAsync(command);
 
         // Assert
-        Assert.IsTrue(response.UserId > 0, "UserId should be populated");
+        Assert.IsTrue(response.Id > 0, "UserId should be populated");
         Assert.AreEqual(command.Email, response.Email);
         Assert.AreEqual(command.FirstName, response.FirstName);
         Assert.AreEqual(command.LastName, response.LastName);
@@ -118,15 +112,12 @@ public class RegisterUserHandlerTests
     public async Task HandleAsync_ValidCommand_CallsAddAsync_Once()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "StrongPass123!@#",
-            FirstName = "Test",
-            LastName = "User",
-            OrganizationName = "TestOrg",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "StrongPass123!@#",
+            firstName: "Test",
+            lastName: "User",
+            organizationName: "TestOrg");
 
         // Act
         await _handler.HandleAsync(command);
@@ -139,15 +130,12 @@ public class RegisterUserHandlerTests
     public async Task HandleAsync_ValidCommand_CallsSaveAsync_Once()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "persist@example.com",
-            Password = "ValidPass123!@#",
-            FirstName = "Persist",
-            LastName = "Test",
-            OrganizationName = "PersistOrg",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "persist@example.com",
+            password: "ValidPass123!@#",
+            firstName: "Persist",
+            lastName: "Test",
+            organizationName: "PersistOrg");
 
         // Act
         await _handler.HandleAsync(command);
@@ -159,42 +147,33 @@ public class RegisterUserHandlerTests
     // ===== SCENARIO 2: Email Validation =====
 
     [TestMethod]
-    [ExpectedException(typeof(UserAlreadyExistsException))]
     public async Task HandleAsync_DuplicateEmail_ThrowsUserAlreadyExistsException()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "existing@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "existing@example.com",
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME");
 
         _mockUserRepository.Setup(r => r.EmailExistsAsync(It.IsAny<Email>()))
             .ReturnsAsync(true);
 
-        // Act
-        await _handler.HandleAsync(command);
-
-        // Assert - should throw exception
+        await Assert.ThrowsExceptionAsync<UserAlreadyExistsException>(
+            () => _handler.HandleAsync(command));
     }
 
     [TestMethod]
     public async Task HandleAsync_DuplicateEmail_DoesNotSaveUser()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "duplicate@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "Duplicate",
-            LastName = "User",
-            OrganizationName = "OrgName",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "duplicate@example.com",
+            password: "SecurePass123!@#",
+            firstName: "Duplicate",
+            lastName: "User",
+            organizationName: "OrgName");
 
         _mockUserRepository.Setup(r => r.EmailExistsAsync(It.IsAny<Email>()))
             .ReturnsAsync(true);
@@ -214,132 +193,97 @@ public class RegisterUserHandlerTests
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ValidationException))]
     public async Task HandleAsync_InvalidEmailFormat_ThrowsValidationException()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "invalid.email",
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "invalid.email",
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME");
 
         var validationFailure = new FluentValidation.Results.ValidationFailure("Email", "Invalid email format");
-        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserCommand>(), default))
+        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserRequest>(), default))
             .ReturnsAsync(new FluentValidation.Results.ValidationResult(new[] { validationFailure }));
 
-        // Act
-        await _handler.HandleAsync(command);
-
-        // Assert - should throw ValidationException
+        await Assert.ThrowsExceptionAsync<ValidationException>(() => _handler.HandleAsync(command));
     }
 
     // ===== SCENARIO 3: Password Validation =====
 
     [TestMethod]
-    [ExpectedException(typeof(ValidationException))]
     public async Task HandleAsync_WeakPassword_ThrowsValidationException()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "weak",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "weak",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME");
 
         var validationFailure = new FluentValidation.Results.ValidationFailure("Password", "Password must be at least 12 characters");
-        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserCommand>(), default))
+        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserRequest>(), default))
             .ReturnsAsync(new FluentValidation.Results.ValidationResult(new[] { validationFailure }));
 
-        // Act
-        await _handler.HandleAsync(command);
-
-        // Assert - should throw ValidationException
+        await Assert.ThrowsExceptionAsync<ValidationException>(() => _handler.HandleAsync(command));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ValidationException))]
     public async Task HandleAsync_EmptyPassword_ThrowsValidationException()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "ACME");
 
         var validationFailure = new FluentValidation.Results.ValidationFailure("Password", "Password is required");
-        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserCommand>(), default))
+        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserRequest>(), default))
             .ReturnsAsync(new FluentValidation.Results.ValidationResult(new[] { validationFailure }));
 
-        // Act
-        await _handler.HandleAsync(command);
-
-        // Assert - should throw ValidationException
+        await Assert.ThrowsExceptionAsync<ValidationException>(() => _handler.HandleAsync(command));
     }
 
     // ===== SCENARIO 4: Name Validation =====
 
     [TestMethod]
-    [ExpectedException(typeof(ValidationException))]
     public async Task HandleAsync_EmptyFirstName_ThrowsValidationException()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "",
-            LastName = "Doe",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "SecurePass123!@#",
+            firstName: "",
+            lastName: "Doe",
+            organizationName: "ACME");
 
         var validationFailure = new FluentValidation.Results.ValidationFailure("FirstName", "First name is required");
-        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserCommand>(), default))
+        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserRequest>(), default))
             .ReturnsAsync(new FluentValidation.Results.ValidationResult(new[] { validationFailure }));
 
-        // Act
-        await _handler.HandleAsync(command);
-
-        // Assert - should throw ValidationException
+        await Assert.ThrowsExceptionAsync<ValidationException>(() => _handler.HandleAsync(command));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ValidationException))]
     public async Task HandleAsync_EmptyLastName_ThrowsValidationException()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "",
+            organizationName: "ACME");
 
         var validationFailure = new FluentValidation.Results.ValidationFailure("LastName", "Last name is required");
-        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserCommand>(), default))
+        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserRequest>(), default))
             .ReturnsAsync(new FluentValidation.Results.ValidationResult(new[] { validationFailure }));
 
-        // Act
-        await _handler.HandleAsync(command);
-
-        // Assert - should throw ValidationException
+        await Assert.ThrowsExceptionAsync<ValidationException>(() => _handler.HandleAsync(command));
     }
 
     [TestMethod]
@@ -347,15 +291,12 @@ public class RegisterUserHandlerTests
     {
         // Arrange
         var longName = new string('A', 100);
-        var command = new RegisterUserCommand
-        {
-            Email = "longname@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = longName,
-            LastName = longName,
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "longname@example.com",
+            password: "SecurePass123!@#",
+            firstName: longName,
+            lastName: longName,
+            organizationName: "ACME");
 
         // Act
         var response = await _handler.HandleAsync(command);
@@ -369,28 +310,21 @@ public class RegisterUserHandlerTests
     // ===== SCENARIO 5: Organization Validation =====
 
     [TestMethod]
-    [ExpectedException(typeof(ValidationException))]
     public async Task HandleAsync_EmptyOrganization_ThrowsValidationException()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "test@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = "",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "test@example.com",
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: "");
 
         var validationFailure = new FluentValidation.Results.ValidationFailure("OrganizationName", "Organization name is required");
-        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserCommand>(), default))
+        _mockValidator.Setup(v => v.ValidateAsync(It.IsAny<RegisterUserRequest>(), default))
             .ReturnsAsync(new FluentValidation.Results.ValidationResult(new[] { validationFailure }));
 
-        // Act
-        await _handler.HandleAsync(command);
-
-        // Assert - should throw ValidationException
+        await Assert.ThrowsExceptionAsync<ValidationException>(() => _handler.HandleAsync(command));
     }
 
     [TestMethod]
@@ -398,15 +332,12 @@ public class RegisterUserHandlerTests
     {
         // Arrange
         var longOrgName = new string('O', 200);
-        var command = new RegisterUserCommand
-        {
-            Email = "longorg@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "John",
-            LastName = "Doe",
-            OrganizationName = longOrgName,
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "longorg@example.com",
+            password: "SecurePass123!@#",
+            firstName: "John",
+            lastName: "Doe",
+            organizationName: longOrgName);
 
         // Act
         var response = await _handler.HandleAsync(command);
@@ -419,33 +350,24 @@ public class RegisterUserHandlerTests
     // ===== SCENARIO 6: Dependencies (Null Checks) =====
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
     public void HandleAsync_NullUserRepository_ThrowsArgumentNullException()
     {
-        // Act
-        new RegisterUserCommandHandler(null!, _mockPasswordHasher.Object, _mockValidator.Object, _mockLogger.Object);
-
-        // Assert - should throw ArgumentNullException
+        Assert.ThrowsException<ArgumentNullException>(() =>
+            new RegisterUserCommandHandler(null!, _mockPasswordHasher.Object, _mockValidator.Object, _mockLogger.Object));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
     public void HandleAsync_NullPasswordHasher_ThrowsArgumentNullException()
     {
-        // Act
-        new RegisterUserCommandHandler(_mockUserRepository.Object, null!, _mockValidator.Object, _mockLogger.Object);
-
-        // Assert - should throw ArgumentNullException
+        Assert.ThrowsException<ArgumentNullException>(() =>
+            new RegisterUserCommandHandler(_mockUserRepository.Object, null!, _mockValidator.Object, _mockLogger.Object));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
     public void HandleAsync_NullValidator_ThrowsArgumentNullException()
     {
-        // Act
-        new RegisterUserCommandHandler(_mockUserRepository.Object, _mockPasswordHasher.Object, null!, _mockLogger.Object);
-
-        // Assert - should throw ArgumentNullException
+        Assert.ThrowsException<ArgumentNullException>(() =>
+            new RegisterUserCommandHandler(_mockUserRepository.Object, _mockPasswordHasher.Object, null!, _mockLogger.Object));
     }
 
     // ===== EDGE CASES =====
@@ -454,38 +376,32 @@ public class RegisterUserHandlerTests
     public async Task HandleAsync_UnicodeCharactersInNames_Succeeds()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "unicode@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "João",
-            LastName = "García",
-            OrganizationName = "Société Générale",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "unicode@example.com",
+            password: "SecurePass123!@#",
+            firstName: "Jo�o",
+            lastName: "Garc�a",
+            organizationName: "Soci�t� G�n�rale");
 
         // Act
         var response = await _handler.HandleAsync(command);
 
         // Assert
         Assert.IsNotNull(response);
-        Assert.AreEqual("João", response.FirstName);
-        Assert.AreEqual("García", response.LastName);
+        Assert.AreEqual("Jo�o", response.FirstName);
+        Assert.AreEqual("Garc�a", response.LastName);
     }
 
     [TestMethod]
     public async Task HandleAsync_HyphenatedNames_Succeeds()
     {
         // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "hyphenated@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "Jean-Pierre",
-            LastName = "O'Brien",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "hyphenated@example.com",
+            password: "SecurePass123!@#",
+            firstName: "Jean-Pierre",
+            lastName: "O'Brien",
+            organizationName: "ACME");
 
         // Act
         var response = await _handler.HandleAsync(command);
@@ -497,26 +413,18 @@ public class RegisterUserHandlerTests
     }
 
     [TestMethod]
-    [ExpectedException(typeof(InvalidOperationException))]
     public async Task HandleAsync_RepositorySaveThrows_PropagatesException()
     {
-        // Arrange
-        var command = new RegisterUserCommand
-        {
-            Email = "error@example.com",
-            Password = "SecurePass123!@#",
-            FirstName = "Error",
-            LastName = "Test",
-            OrganizationName = "ACME",
-            IdempotencyKey = Guid.NewGuid().ToString()
-        };
+        var command = RegisterUserRequestFactory.Create(
+            email: "error@example.com",
+            password: "SecurePass123!@#",
+            firstName: "Error",
+            lastName: "Test",
+            organizationName: "ACME");
 
         _mockUserRepository.Setup(r => r.SaveAsync())
             .ThrowsAsync(new InvalidOperationException("Database error"));
 
-        // Act
-        await _handler.HandleAsync(command);
-
-        // Assert - should propagate exception
+        await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => _handler.HandleAsync(command));
     }
 }

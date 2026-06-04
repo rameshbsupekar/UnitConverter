@@ -1,5 +1,6 @@
-using UnitConverter.Contracts.Auth.Commands;
-using UnitConverter.Contracts.Auth.Responses;
+using UnitConverter.UserManagement.Contracts.Requests;
+using UnitConverter.UserManagement.Contracts.Responses;
+using UnitConverter.Common.Contracts.Responses;
 using Xunit;
 
 namespace UnitConverter.Contracts.Tests.Auth;
@@ -7,15 +8,16 @@ namespace UnitConverter.Contracts.Tests.Auth;
 public class RecordImmutabilityAndPatternsTests
 {
     [Fact]
-    public void RegisterUserCommand_RecordIsImmutable()
+    public void RegisterUserRequest_RecordIsImmutable()
     {
         // Arrange
-        var command = new RegisterUserCommand(
+        var command = new RegisterUserRequest(
             Email: "user@example.com",
             Password: "Password123!",
             FirstName: "John",
             LastName: "Doe",
-            OrganizationName: "ACME"
+            OrganizationName: "ACME",
+            IdempotencyKey: Guid.NewGuid().ToString()
         );
 
         // Act - Create a "modified" record using 'with' expression
@@ -31,12 +33,13 @@ public class RecordImmutabilityAndPatternsTests
     public void UserResponse_RecordSupportsPatternMatching()
     {
         // Arrange
-        var userId = Guid.NewGuid();
         var response = new UserResponse(
-            Id: userId,
+            Id: 42,
             Email: "admin@example.com",
             FirstName: "Jane",
             LastName: "Smith",
+            OrganizationName: "ACME",
+            CreatedAt: DateTime.UtcNow,
             Roles: ["Admin", "User"]
         );
 
@@ -52,12 +55,12 @@ public class RecordImmutabilityAndPatternsTests
     }
 
     [Fact]
-    public void LoginCommand_RecordEquality()
+    public void LoginRequest_RecordEquality()
     {
         // Arrange
-        var command1 = new LoginCommand(Email: "user@example.com", Password: "Pass123!");
-        var command2 = new LoginCommand(Email: "user@example.com", Password: "Pass123!");
-        var command3 = new LoginCommand(Email: "other@example.com", Password: "Pass123!");
+        var command1 = new LoginRequest(Email: "user@example.com", Password: "Pass123!");
+        var command2 = new LoginRequest(Email: "user@example.com", Password: "Pass123!");
+        var command3 = new LoginRequest(Email: "other@example.com", Password: "Pass123!");
 
         // Act & Assert
         Assert.Equal(command1, command2);
@@ -116,16 +119,16 @@ public class RecordImmutabilityAndPatternsTests
     }
 
     [Fact]
-    public void RevokeTokenCommand_RecordToString()
+    public void RevokeTokenRequest_RecordToString()
     {
         // Arrange
-        var command = new RevokeTokenCommand(RefreshToken: "refresh_token_xyz");
+        var command = new RevokeTokenRequest(RefreshToken: "refresh_token_xyz");
 
         // Act
         string representation = command.ToString();
 
         // Assert - Records have meaningful string representation
-        Assert.Contains("RevokeTokenCommand", representation);
+        Assert.Contains("RevokeTokenRequest", representation);
         Assert.Contains("refresh_token_xyz", representation);
     }
 }

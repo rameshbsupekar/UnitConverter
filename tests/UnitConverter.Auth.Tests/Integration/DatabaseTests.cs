@@ -5,11 +5,11 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using UnitConverter.Auth.Core.Domain.Entities;
-using UnitConverter.Auth.Core.Domain.ValueObjects;
-using UnitConverter.Auth.Infrastructure.Data;
+using UnitConverter.UserManagement.Core.Domain.Entities;
+using UnitConverter.UserManagement.Core.Domain.ValueObjects;
+using UnitConverter.UserManagement.DataAccess.Data;
 
-namespace UnitConverter.Auth.Tests.Integration;
+namespace UnitConverter.UserManagement.Api.Tests.Integration;
 
 /// <summary>
 /// Integration tests for database operations.
@@ -19,14 +19,14 @@ namespace UnitConverter.Auth.Tests.Integration;
 [TestClass]
 public class DatabaseTests
 {
-    private DbContextOptions<AuthDbContext> CreateInMemoryDbOptions()
+    private static DbContextOptions<AuthDbContext> CreateInMemoryDbOptions()
     {
         return new DbContextOptionsBuilder<AuthDbContext>()
             .UseSqlite("Data Source=:memory:")
             .Options;
     }
 
-    private AuthDbContext CreateContext()
+    private static AuthDbContext CreateContext()
     {
         var options = CreateInMemoryDbOptions();
         var context = new AuthDbContext(options);
@@ -215,7 +215,17 @@ public class DatabaseTests
     {
         using var context = CreateContext();
 
-        var userId = UserId.Create(1);
+        var user = User.Create(
+            userId: 1,
+            email: "token-owner@example.com",
+            firstName: "Token",
+            lastName: "Owner",
+            organizationName: "Org",
+            passwordHash: "hash");
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var userId = user.Id;
         var token = RefreshToken.Create(
             id: 1,
             userId: userId,
@@ -237,7 +247,17 @@ public class DatabaseTests
     {
         using var context = CreateContext();
 
-        var userId = UserId.Create(1);
+        var user = User.Create(
+            userId: 1,
+            email: "revoke-owner@example.com",
+            firstName: "Revoke",
+            lastName: "Owner",
+            organizationName: "Org",
+            passwordHash: "hash");
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var userId = user.Id;
         var token = RefreshToken.Create(
             id: 1,
             userId: userId,

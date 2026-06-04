@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using UnitConverter.Auth.Application.Services;
+using UnitConverter.UserManagement.Application.Services;
 
-namespace UnitConverter.Auth.Tests.Unit.Application;
+namespace UnitConverter.UserManagement.Api.Tests.Unit.Application;
 
 /// <summary>
 /// BDD-organized tests for password hashing and verification using bcrypt.
@@ -284,27 +284,21 @@ public class PasswordValidationTests
     // ===== SCENARIO 6: Constructor Validation & Input Validation =====
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentException))]
     public void HashPassword_NullPassword_ThrowsArgumentException()
     {
-        // Act
-        _service.HashPassword(null!);
+        Assert.ThrowsException<ArgumentException>(() => _service.HashPassword(null!));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentException))]
     public void HashPassword_EmptyPassword_ThrowsArgumentException()
     {
-        // Act
-        _service.HashPassword("");
+        Assert.ThrowsException<ArgumentException>(() => _service.HashPassword(""));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentException))]
     public void HashPassword_WhitespaceOnlyPassword_ThrowsArgumentException()
     {
-        // Act
-        _service.HashPassword("   ");
+        Assert.ThrowsException<ArgumentException>(() => _service.HashPassword("   "));
     }
 
     [TestMethod]

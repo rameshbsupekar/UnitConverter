@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Diagnostics;
-using UnitConverter.Auth.API.Middleware;
+using UnitConverter.Common.Middleware;
 
-namespace UnitConverter.Auth.Tests.Unit.Middleware;
+namespace UnitConverter.UserManagement.Api.Tests.Unit.Middleware;
 
 /// <summary>
 /// Unit tests for RequestLoggingMiddleware.

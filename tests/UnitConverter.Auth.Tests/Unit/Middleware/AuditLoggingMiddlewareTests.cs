@@ -1,21 +1,23 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Security.Claims;
-using UnitConverter.Auth.API.Middleware;
+using UnitConverter.Common.Attributes;
+using UnitConverter.Common.Constants;
+using UnitConverter.UserManagement.Api.Middleware;
 
-namespace UnitConverter.Auth.Tests.Unit.Middleware;
+namespace UnitConverter.UserManagement.Api.Tests.Unit.Middleware;
 
 /// <summary>
 /// Unit tests for AuditLoggingMiddleware.
-/// Verifies audit logging of authentication endpoints (register, login, logout),
-/// user ID extraction, duration tracking, and correlation ID propagation.
+/// Auditing is driven by <see cref="AuditedAttribute"/> endpoint metadata (after routing), not hardcoded paths.
 /// </summary>
 [TestClass]
 public class AuditLoggingMiddlewareTests
 {
-    private Mock<ILogger<AuditLoggingMiddleware>> _loggerMock;
+    private Mock<ILogger<AuditLoggingMiddleware>> _loggerMock = null!;
 
     [TestInitialize]
     public void Setup()
@@ -24,18 +26,16 @@ public class AuditLoggingMiddlewareTests
     }
 
     [TestMethod]
-    [Description("When request path is /api/v1/auth/register, middleware should audit the request")]
+    [Description("When endpoint is marked [Audited] for register, middleware should audit the request")]
     public async Task InvokeAsync_WhenRegisterEndpoint_ShouldAuditRequest()
     {
-        // Arrange
-        var context = CreateHttpContext("/api/v1/auth/register", "POST");
-        var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var context = CreateHttpContext(ApiV1Paths.RegisterUser, "POST");
+        SetAuditedEndpoint(context, nameof(RegisterAsync));
 
-        // Act
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
@@ -47,18 +47,16 @@ public class AuditLoggingMiddlewareTests
     }
 
     [TestMethod]
-    [Description("When request path is /api/v1/auth/login, middleware should audit the request")]
+    [Description("When endpoint is marked [Audited] for login, middleware should audit the request")]
     public async Task InvokeAsync_WhenLoginEndpoint_ShouldAuditRequest()
     {
-        // Arrange
-        var context = CreateHttpContext("/api/v1/auth/login", "POST");
-        var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var context = CreateHttpContext(ApiV1Paths.CreateSession, "POST");
+        SetAuditedEndpoint(context, nameof(LoginAsync));
 
-        // Act
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
@@ -70,18 +68,16 @@ public class AuditLoggingMiddlewareTests
     }
 
     [TestMethod]
-    [Description("When request path is /api/v1/auth/logout, middleware should audit the request")]
+    [Description("When endpoint is marked [Audited] for logout, middleware should audit the request")]
     public async Task InvokeAsync_WhenLogoutEndpoint_ShouldAuditRequest()
     {
-        // Arrange
-        var context = CreateHttpContext("/api/v1/auth/logout", "POST");
-        var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var context = CreateHttpContext($"{ApiV1Paths.CreateSession}/logout", "POST");
+        SetAuditedEndpoint(context, "LogoutAsync");
 
-        // Act
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
@@ -93,18 +89,15 @@ public class AuditLoggingMiddlewareTests
     }
 
     [TestMethod]
-    [Description("When request path is non-audited endpoint, middleware should skip audit logging")]
+    [Description("When endpoint has no [Audited] metadata, middleware should skip audit logging")]
     public async Task InvokeAsync_WhenNonAuditedEndpoint_ShouldNotAudit()
     {
-        // Arrange
-        var context = CreateHttpContext("/api/v1/health", "GET");
-        var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var context = CreateHttpContext(ApiV1Paths.Health, "GET");
 
-        // Act
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
@@ -119,16 +112,14 @@ public class AuditLoggingMiddlewareTests
     [Description("When user is authenticated, middleware should log user ID in audit trail")]
     public async Task InvokeAsync_WhenUserAuthenticated_ShouldCaptureUserId()
     {
-        // Arrange
         var userId = "user123";
-        var context = CreateHttpContextWithUser("/api/v1/auth/login", "POST", userId);
-        var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var context = CreateHttpContextWithUser(ApiV1Paths.CreateSession, "POST", userId);
+        SetAuditedEndpoint(context, nameof(LoginAsync));
 
-        // Act
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
@@ -143,15 +134,13 @@ public class AuditLoggingMiddlewareTests
     [Description("When user is not authenticated, middleware should log ANONYMOUS in audit trail")]
     public async Task InvokeAsync_WhenUserNotAuthenticated_ShouldLogAnonymous()
     {
-        // Arrange
-        var context = CreateHttpContext("/api/v1/auth/register", "POST");
-        var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var context = CreateHttpContext(ApiV1Paths.RegisterUser, "POST");
+        SetAuditedEndpoint(context, nameof(RegisterAsync));
 
-        // Act
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
@@ -166,15 +155,13 @@ public class AuditLoggingMiddlewareTests
     [Description("Middleware should capture HTTP method in audit log")]
     public async Task InvokeAsync_ShouldCaptureHttpMethod()
     {
-        // Arrange
-        var context = CreateHttpContext("/api/v1/auth/login", "POST");
-        var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var context = CreateHttpContext(ApiV1Paths.CreateSession, "POST");
+        SetAuditedEndpoint(context, nameof(LoginAsync));
 
-        // Act
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
@@ -189,17 +176,14 @@ public class AuditLoggingMiddlewareTests
     [Description("Middleware should capture response status code in audit log")]
     public async Task InvokeAsync_ShouldCaptureStatusCode()
     {
-        // Arrange
-        var context = CreateHttpContext("/api/v1/auth/login", "POST");
+        var context = CreateHttpContext(ApiV1Paths.CreateSession, "POST");
         context.Response.StatusCode = 200;
+        SetAuditedEndpoint(context, nameof(LoginAsync));
 
-        var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
 
-        // Act
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
@@ -214,18 +198,13 @@ public class AuditLoggingMiddlewareTests
     [Description("Middleware should measure and log request duration")]
     public async Task InvokeAsync_ShouldMeasureDuration()
     {
-        // Arrange
-        var context = CreateHttpContext("/api/v1/auth/login", "POST");
-        var nextDelegate = new RequestDelegate(async _ =>
-        {
-            await Task.Delay(5); // Simulate some processing
-        });
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var context = CreateHttpContext(ApiV1Paths.CreateSession, "POST");
+        SetAuditedEndpoint(context, nameof(LoginAsync));
 
-        // Act
+        var middleware = CreateMiddleware(async _ => await Task.Delay(5));
+
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
@@ -240,18 +219,15 @@ public class AuditLoggingMiddlewareTests
     [Description("Middleware should propagate correlation ID in audit logs")]
     public async Task InvokeAsync_ShouldPropagateCorrelationId()
     {
-        // Arrange
         var correlationId = Guid.NewGuid().ToString();
-        var context = CreateHttpContext("/api/v1/auth/login", "POST");
+        var context = CreateHttpContext(ApiV1Paths.CreateSession, "POST");
         context.Items["X-Correlation-ID"] = correlationId;
+        SetAuditedEndpoint(context, nameof(LoginAsync));
 
-        var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
 
-        // Act
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
                 LogLevel.Information,
@@ -263,47 +239,58 @@ public class AuditLoggingMiddlewareTests
     }
 
     [TestMethod]
-    [Description("Middleware should handle alternative auth paths like /api/auth/login")]
-    public async Task InvokeAsync_WhenAlternativeAuthPath_ShouldAudit()
+    [Description("Paths without a resolved [Audited] endpoint are not audited (routing/versioning owns matching)")]
+    public async Task InvokeAsync_WhenNoAuditedEndpointMetadata_ShouldNotAudit()
     {
-        // Arrange
-        var context = CreateHttpContext("/api/auth/login", "POST");
-        var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var context = CreateHttpContext("/api/sessions", "POST");
 
-        // Act
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+
         await middleware.InvokeAsync(context);
 
-        // Assert
         _loggerMock.Verify(
             x => x.Log(
-                LogLevel.Information,
+                It.IsAny<LogLevel>(),
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("USER_LOGIN")),
+                It.IsAny<It.IsAnyType>(),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.AtLeastOnce);
+            Times.Never);
     }
 
     [TestMethod]
     [Description("Middleware should continue pipeline regardless of audit logging")]
     public async Task InvokeAsync_ShouldContinuePipeline()
     {
-        // Arrange
-        var pipelelineCalled = false;
-        var context = CreateHttpContext("/api/v1/auth/login", "POST");
-        var nextDelegate = new RequestDelegate(async _ =>
-        {
-            pipelelineCalled = true;
-            await Task.CompletedTask;
-        });
-        var middleware = new AuditLoggingMiddleware(nextDelegate, _loggerMock.Object);
+        var pipelineCalled = false;
+        var context = CreateHttpContext(ApiV1Paths.CreateSession, "POST");
+        SetAuditedEndpoint(context, nameof(LoginAsync));
 
-        // Act
+        var middleware = CreateMiddleware(_ =>
+        {
+            pipelineCalled = true;
+            return Task.CompletedTask;
+        });
+
         await middleware.InvokeAsync(context);
 
-        // Assert
-        pipelelineCalled.Should().BeTrue();
+        pipelineCalled.Should().BeTrue();
+    }
+
+    private AuditLoggingMiddleware CreateMiddleware(RequestDelegate next) =>
+        new(next, _loggerMock.Object);
+
+    private static void SetAuditedEndpoint(HttpContext context, string actionName)
+    {
+        var metadata = new EndpointMetadataCollection(
+            new AuditedAttribute(),
+            new ControllerActionDescriptor
+            {
+                ActionName = actionName,
+                ControllerName = "Auth"
+            });
+
+        context.SetEndpoint(new Endpoint(_ => Task.CompletedTask, metadata, $"Auth.{actionName}"));
     }
 
     private static HttpContext CreateHttpContext(string path, string method)
@@ -320,8 +307,11 @@ public class AuditLoggingMiddlewareTests
         var httpContext = CreateHttpContext(path, method);
         var claims = new[] { new Claim("sub", userId) };
         var identity = new ClaimsIdentity(claims, "test");
-        var principal = new ClaimsPrincipal(identity);
-        httpContext.User = principal;
+        httpContext.User = new ClaimsPrincipal(identity);
         return httpContext;
     }
+
+    private static Task RegisterAsync() => Task.CompletedTask;
+
+    private static Task LoginAsync() => Task.CompletedTask;
 }

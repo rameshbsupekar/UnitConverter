@@ -3,9 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
-using UnitConverter.Core.Extensions;
+using UnitConverter.Common.Contracts.Resilience;
+using UnitConverter.Common.DependencyInjection;
 
-namespace UnitConverter.Auth.Tests;
+namespace UnitConverter.UserManagement.Api.Tests;
 
 /// <summary>
 /// BDD-style unit tests for rate limiting extensions and configuration.
@@ -36,18 +37,18 @@ public class RateLimitingTests
     }
 
     /// <summary>
-    /// Given: AddApplicationRateLimiting called with configuration
+    /// Given: AddSharedResilience called with configuration
     /// When: Extension method is invoked
     /// Then: Service collection is properly configured and returns itself
     /// </summary>
     [TestMethod]
-    public void AddApplicationRateLimiting_WhenCalled_RegistersConfiguration()
+    public void AddSharedResilience_WhenCalled_RegistersConfiguration()
     {
         // Act
-        var result = _services.AddApplicationRateLimiting(_configuration);
+        var result = _services.AddSharedResilience(_configuration);
 
         // Assert
-        Assert.IsNotNull(result, "AddApplicationRateLimiting should return the service collection");
+        Assert.IsNotNull(result, "AddSharedResilience should return the service collection");
         Assert.AreSame(_services, result, "Should return the same service collection for chaining");
     }
 
@@ -154,7 +155,7 @@ public class RateLimitingTests
         _services.AddSingleton(_configuration);
 
         // Act
-        var result = _services.AddApplicationRateLimiting(_configuration);
+        var result = _services.AddSharedResilience(_configuration);
 
         // Assert
         Assert.IsNotNull(result, "Service provider result should not be null");

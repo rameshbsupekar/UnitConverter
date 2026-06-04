@@ -1,12 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using UnitConverter.Auth.Application.Services;
-using UnitConverter.Auth.Common.Models;
-using UnitConverter.Auth.Tests.Fixtures;
+using UnitConverter.UserManagement.Application.Services;
+using UnitConverter.UserManagement.Common.Models;
+using UnitConverter.UserManagement.Api.Tests.Fixtures;
 
-namespace UnitConverter.Auth.Tests.Unit.Application;
+namespace UnitConverter.UserManagement.Api.Tests.Unit.Application;
 
 /// <summary>
 /// BDD-organized tests for JWT token generation and validation.
@@ -70,7 +70,6 @@ public class JwtTokenGenerationTests
     {
         // Arrange
         var user = TestUserFactory.CreateValidUser();
-        var beforeGeneration = DateTime.UtcNow;
 
         // Act
         var token = _service.GenerateAccessToken(user, new[] { "User" });
@@ -439,18 +438,14 @@ public class JwtTokenGenerationTests
     // ===== SCENARIO 6: Constructor Validation =====
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
     public void Constructor_NullSettings_ThrowsArgumentNullException()
     {
-        // Act
-        new JwtTokenService(null!);
+        Assert.ThrowsException<ArgumentNullException>(() => new JwtTokenService(null!));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentException))]
     public void Constructor_SecretTooShort_ThrowsArgumentException()
     {
-        // Arrange
         var shortSecretSettings = new JwtSettings
         {
             Secret = "short", // Less than 32 characters
@@ -460,15 +455,12 @@ public class JwtTokenGenerationTests
             RefreshTokenExpiryDays = 7
         };
 
-        // Act
-        new JwtTokenService(shortSecretSettings);
+        Assert.ThrowsException<ArgumentException>(() => new JwtTokenService(shortSecretSettings));
     }
 
     [TestMethod]
-    [ExpectedException(typeof(ArgumentNullException))]
     public void GenerateAccessToken_NullUser_ThrowsArgumentNullException()
     {
-        // Act
-        _service.GenerateAccessToken(null!, new[] { "User" });
+        Assert.ThrowsException<ArgumentNullException>(() => _service.GenerateAccessToken(null!, new[] { "User" }));
     }
 }

@@ -1,26 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>UnitConverter.Contracts.Tests</AssemblyName>
     <RootNamespace>UnitConverter.Contracts.Tests</RootNamespace>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>latest</LangVersion>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="xunit" Version="2.7.0" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/UnitConverter.Contracts/UnitConverter.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\UnitConverter.Common.Contracts\UnitConverter.Common.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\UnitConverter.UserManagement.Contracts\UnitConverter.UserManagement.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\UnitConverter.UnitsDefinitions.Contracts\UnitConverter.UnitsDefinitions.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

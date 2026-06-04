@@ -28,8 +28,8 @@ Out of scope (for v1): persistence of conversion history, user accounts, currenc
             │            ▲                                  │
             │            │ reads unit catalog               │
             │   ┌────────┴───────────┐                      │
-            │   │ Unit catalog (in-  │  (config/JSON now,   │
-            │   │ memory / config)   │   DB later if needed)│
+            │   │ Unit catalog (EF  │  SQLite + seed in   │
+            │   │ ConverterDbContext)│  Infrastructure      │
             │   └────────────────────┘                      │
             └───────────────────────────────────────────────┘
 ```
@@ -43,7 +43,7 @@ Dependencies point **inward only**. The Domain knows nothing about the web, DI, 
 
 ```
             ┌──────────────────────────────────────────────┐
-            │                 UnitConverter.Api             │  ← controllers/endpoints,
+            │                 UnitConverter.UnitsDefinitions.Api             │  ← controllers/endpoints,
             │  (ASP.NET Core, OpenAPI, middleware, DI)      │    middleware, problem details
             │   depends on ▼                                │
             │  ┌────────────────────────────────────────┐  │
@@ -51,7 +51,7 @@ Dependencies point **inward only**. The Domain knows nothing about the web, DI, 
             │  │  (orchestration, validation, ports)      │ │    abstractions (ports)
             │  │            depends on ▼                  │  │
             │  │   ┌──────────────────────────────────┐   │ │
-            │  │   │       UnitConverter.Domain        │   │ │  ← entities, value objects,
+            │  │   │       UnitConverter.UnitsDefinitions        │   │ │  ← entities, value objects,
             │  │   │  (entities, rules, invariants)    │   │ │    conversion rules — NO deps
             │  │   └──────────────────────────────────┘   │ │
             │  └────────────────────────────────────────┘  │
@@ -87,7 +87,7 @@ delegates to an Application use case, and maps the result to HTTP.
 ```
 Client → API endpoint
        → validate request shape (ASP.NET model binding + validator)
-       → ConvertQuantityUseCase(request)
+       → IConvertUnitsHandler (ConvertUnitsHandler)
              → resolve from/to Units from Unit catalog (Application port)
              → guard: same category? known units?
              → select IConversionRule (linear | affine | formula)
@@ -120,32 +120,42 @@ OpenAPI document published in all environments (Swagger UI in dev).
 | **Observability** | OpenTelemetry traces/metrics/logs exported via OTLP to a **local .NET Aspire dashboard**; structured logging + correlation id (see ADR-0004 & §10). |
 | **Performance** | `decimal` math is cheap; **catalog reads cached** (not the arithmetic); regressions caught by **BenchmarkDotNet** + **NBomber/k6** load tests (ADR-0004). |
 
-## 8. Target solution layout
+## 8. Target solution layout (current)
 
 ```
 UnitConverter.slnx
 ├── src
-│   ├── UnitConverter.Domain          (class lib — no deps)
-│   ├── UnitConverter.Application     (class lib — refs Domain)
-│   ├── UnitConverter.Infrastructure  (class lib — refs Application)
-│   ├── UnitConverter.Api             (web — refs Application + Infrastructure)
-│   ├── UnitConverter.ServiceDefaults (Aspire — OTel + health + resilience wiring)
-│   └── UnitConverter.AppHost         (Aspire orchestration; runs API + dashboard) [optional]
+│   ├── UnitConverter.Common.Contracts
+│   ├── UnitConverter.UnitsDefinitions.Contracts
+│   ├── UnitConverter.UnitsDefinitions.Contracts
+│   ├── UnitConverter.UserManagement.Contracts
+│   ├── UnitConverter.Common
+│   ├── UnitConverter.UnitsDefinitions
+│   ├── UnitConverter.Application
+│   ├── UnitConverter.Application.Client
+│   ├── UnitConverter.Infrastructure      (ConverterDbContext + resilience)
+│   ├── UnitConverter.UnitsDefinitions.Api               (conversion REST host)
+│   ├── UnitConverter.Web               (Razor UI → Application.Client)
+│   └── UnitConverter.Auth              (auth microservice + AuthDbContext)
 ├── tests
-│   ├── UnitConverter.Domain.Tests        (MSTest)
-│   ├── UnitConverter.Application.Tests    (MSTest + Moq)
-│   ├── UnitConverter.Api.Tests            (MSTest + WebApplicationFactory)
-│   ├── UnitConverter.Bdd.Tests            (Reqnroll + MSTest)
-│   └── UnitConverter.Load.Tests           (NBomber load/throughput)
+│   ├── UnitConverter.UnitsDefinitions.Tests
+│   ├── UnitConverter.Application.Tests
+│   ├── UnitConverter.UnitsDefinitions.Api.Tests
+│   ├── UnitConverter.Contracts.Tests
+│   ├── UnitConverter.Infrastructure.Tests
+│   ├── UnitConverter.Auth.Tests
+│   ├── UnitConverter.Bdd.Tests         (exists; add to slnx when enabling BDD)
+│   └── UnitConverter.Load.Tests
 ├── perf
-│   └── UnitConverter.Benchmarks           (BenchmarkDotNet micro-benchmarks)
+│   └── UnitConverter.Benchmarks
 └── docs
-    ├── HLD.md  LLD.md  PLAN.md
+    ├── STATUS.md  HLD.md  LLD.md  PLAN.md  ARCHITECTURE-LAYERS.md
     └── decision-records/
 ```
 
-> Migration note: today the repo has `UnitConverter.API` (scaffolded) and an empty
-> `UnitConverter.Domain` not yet in the solution. `docs/PLAN.md` Milestone 0 covers the move.
+> **Observability:** `UnitConverter.ServiceDefaults` was removed. Register OpenTelemetry and health checks in each host (`Program.cs`) or shared `Infrastructure` extensions — see [`STATUS.md`](STATUS.md).
+>
+> **Optional later:** `UnitConverter.AppHost` (Aspire) to orchestrate Api + Auth + dashboard.
 
 ## 9. Key decisions (see ADRs)
 
@@ -162,14 +172,14 @@ Detailed in [`LLD.md`](LLD.md) §9–§11 and [ADR-0004](decision-records/0004-o
 
 ```
                      OTLP (gRPC/http)
-  UnitConverter.Api ───────────────────►  .NET Aspire dashboard  (local: traces · metrics · logs)
+  UnitConverter.UnitsDefinitions.Api ───────────────────►  .NET Aspire dashboard  (local: traces · metrics · logs)
    │  OpenTelemetry SDK                         ▲
    │  ├─ traces   (ActivitySource "UnitConverter")
    │  ├─ metrics  (Meter "UnitConverter": conversions.count / duration / errors.count)
    │  └─ logs     (ILogger → OTel log pipeline, correlation id)
    │
    ├─ HybridCache / IMemoryCache  → catalog reads (units, categories)  [TTL + eviction]
-   └─ ServiceDefaults             → health checks, resilience, OTel registration
+   └─ Infrastructure / host       → resilience, health, OTel registration
 ```
 
 - **Local review (primary):** run via the Aspire **AppHost** (or the standalone dashboard
@@ -205,7 +215,7 @@ See [ADR-0005](decision-records/0005-stateless-cloud-ready-deployment.md).
 | Concern | How the design supports it |
 |---------|----------------------------|
 | **Horizontal scaling** | Stateless API → add instances freely; round-robin LB, no sticky sessions. |
-| **Health checks** | `ServiceDefaults` exposes liveness/readiness → LB probes & K8s `liveness`/`readiness`. |
+| **Health checks** | Each host exposes `/health` (Auth today); extend Api/Web for LB/K8s probes. |
 | **Caching at scale** | Per-instance L1 cache is correct for the **immutable** catalog; if it becomes dynamic, `HybridCache` adds **L2 (Redis)** by config — no redesign. |
 | **Config-driven (12-factor)** | OTLP endpoint, TTLs, rate limits via configuration → one image, many environments. |
 | **Containerization & deploy** | `dotnet publish` container images; Aspire `AppHost` models topology, can emit ACA/AKS/K8s manifests. |

@@ -57,8 +57,8 @@ tests/UnitConverter.Auth.Tests/
 
 | Item | Convention | Example |
 |------|-----------|---------|
-| **Namespaces** | PascalCase, hierarchical | `UnitConverter.Auth.Application.Commands` |
-| **Classes** | PascalCase | `User`, `UserRepository`, `RegisterUserCommand` |
+| **Namespaces** | PascalCase, hierarchical | `UnitConverter.UserManagement.Application.Commands` |
+| **Classes** | PascalCase | `User`, `UserRepository`, `RegisterUserRequest` |
 | **Interfaces** | I + PascalCase | `IUserRepository`, `ITokenGenerator` |
 | **Methods** | PascalCase, verb + noun | `GetUserById`, `ValidateToken`, `CreateAsync` |
 | **Properties** | PascalCase | `Email`, `FirstName`, `CreatedAt` |
@@ -603,10 +603,17 @@ public class TokenExpiredException : ApplicationException
 - Comments: Explain *why*, not *what* (code is self-documenting)
 - No TODO/FIXME without ticket reference
 
+### XML documentation
+
+- Put **`///` summary (and param/returns where useful) on interfaces** — that is the contract IntelliSense should show.
+- On **implementing classes**, use **`/// <inheritdoc />`** on the type and on each member that implements the interface. Do not duplicate interface prose on implementations.
+- **Constants**, DTOs/records, controllers, handlers without an interface, and **private members** do not need XML unless there is a compelling reason (keep those self-explanatory or use brief `//` comments for non-obvious logic).
+- Constructors are not inherited from interfaces; omit XML on ctor unless the type has no interface and the ctor is public API surface.
+
 ### Code Review Checklist
 
 - [ ] No code duplication (DRY principle)
-- [ ] All public methods documented (XML comments)
+- [ ] Interface members have XML docs; implementations use `<inheritdoc />`
 - [ ] All tests passing locally
 - [ ] No hardcoded secrets (use configuration)
 - [ ] No N+1 query problems
@@ -638,7 +645,7 @@ public class TokenExpiredException : ApplicationException
 ```
 feat: add user registration command handler
 
-- Implement RegisterUserCommandHandler with validation
+- Implement RegisterUserRequestHandler with validation
 - Add fluent validation rules for strong passwords
 - Use bcrypt for password hashing (work factor 12)
 

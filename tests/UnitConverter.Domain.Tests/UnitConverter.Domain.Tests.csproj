@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\UnitConverter.Domain\UnitConverter.Domain.csproj" />
+    <ProjectReference Include="..\..\src\UnitConverter.UnitsDefinitions\UnitConverter.UnitsDefinitions.csproj" />
   </ItemGroup>
 
 </Project>

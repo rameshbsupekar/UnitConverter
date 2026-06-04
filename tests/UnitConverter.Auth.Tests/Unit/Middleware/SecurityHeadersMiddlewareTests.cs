@@ -2,11 +2,13 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Moq;
-using UnitConverter.Auth.API.Middleware;
+using UnitConverter.Common.Middleware;
+using UnitConverter.Common.Constants;
 
-namespace UnitConverter.Auth.Tests.Unit.Middleware;
+namespace UnitConverter.UserManagement.Api.Tests.Unit.Middleware;
 
 /// <summary>
 /// Unit tests for SecurityHeadersMiddleware.
@@ -31,7 +33,7 @@ public class SecurityHeadersMiddlewareTests
     public async Task InvokeAsync_ShouldAddHstsHeader()
     {
         // Arrange
-        _environmentMock.Setup(x => x.IsProduction()).Returns(false);
+        _environmentMock.Setup(x => x.EnvironmentName).Returns(Environments.Development);
         var context = CreateHttpContext();
         var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
         var middleware = new SecurityHeadersMiddleware(nextDelegate, _loggerMock.Object, _environmentMock.Object);
@@ -52,7 +54,7 @@ public class SecurityHeadersMiddlewareTests
     public async Task InvokeAsync_ShouldAddXFrameOptionsHeaderAsDeny()
     {
         // Arrange
-        _environmentMock.Setup(x => x.IsProduction()).Returns(false);
+        _environmentMock.Setup(x => x.EnvironmentName).Returns(Environments.Development);
         var context = CreateHttpContext();
         var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
         var middleware = new SecurityHeadersMiddleware(nextDelegate, _loggerMock.Object, _environmentMock.Object);
@@ -70,7 +72,7 @@ public class SecurityHeadersMiddlewareTests
     public async Task InvokeAsync_ShouldAddXContentTypeOptionsHeader()
     {
         // Arrange
-        _environmentMock.Setup(x => x.IsProduction()).Returns(false);
+        _environmentMock.Setup(x => x.EnvironmentName).Returns(Environments.Development);
         var context = CreateHttpContext();
         var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
         var middleware = new SecurityHeadersMiddleware(nextDelegate, _loggerMock.Object, _environmentMock.Object);
@@ -88,7 +90,7 @@ public class SecurityHeadersMiddlewareTests
     public async Task InvokeAsync_ShouldAddReferrerPolicyHeader()
     {
         // Arrange
-        _environmentMock.Setup(x => x.IsProduction()).Returns(false);
+        _environmentMock.Setup(x => x.EnvironmentName).Returns(Environments.Development);
         var context = CreateHttpContext();
         var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
         var middleware = new SecurityHeadersMiddleware(nextDelegate, _loggerMock.Object, _environmentMock.Object);
@@ -97,8 +99,8 @@ public class SecurityHeadersMiddlewareTests
         await middleware.InvokeAsync(context);
 
         // Assert
-        context.Response.Headers.ReferrerPolicy.Should().NotBeEmpty();
-        context.Response.Headers.ReferrerPolicy.FirstOrDefault().Should().Be("strict-origin-when-cross-origin");
+        context.Response.Headers[HttpResponseHeaderNames.ReferrerPolicy].ToString()
+            .Should().Be(ReferrerPolicyValues.StrictOriginWhenCrossOrigin);
     }
 
     [TestMethod]
@@ -106,7 +108,7 @@ public class SecurityHeadersMiddlewareTests
     public async Task InvokeAsync_InProduction_ShouldSetStrictCsp()
     {
         // Arrange
-        _environmentMock.Setup(x => x.IsProduction()).Returns(true);
+        _environmentMock.Setup(x => x.EnvironmentName).Returns(Environments.Production);
         var context = CreateHttpContext();
         var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
         var middleware = new SecurityHeadersMiddleware(nextDelegate, _loggerMock.Object, _environmentMock.Object);
@@ -128,7 +130,7 @@ public class SecurityHeadersMiddlewareTests
     public async Task InvokeAsync_InDevelopment_ShouldSetPermissiveCsp()
     {
         // Arrange
-        _environmentMock.Setup(x => x.IsProduction()).Returns(false);
+        _environmentMock.Setup(x => x.EnvironmentName).Returns(Environments.Development);
         var context = CreateHttpContext();
         var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
         var middleware = new SecurityHeadersMiddleware(nextDelegate, _loggerMock.Object, _environmentMock.Object);
@@ -149,7 +151,7 @@ public class SecurityHeadersMiddlewareTests
     public async Task InvokeAsync_ShouldAddAllSecurityHeaders()
     {
         // Arrange
-        _environmentMock.Setup(x => x.IsProduction()).Returns(false);
+        _environmentMock.Setup(x => x.EnvironmentName).Returns(Environments.Development);
         var context = CreateHttpContext();
         var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
         var middleware = new SecurityHeadersMiddleware(nextDelegate, _loggerMock.Object, _environmentMock.Object);
@@ -161,7 +163,7 @@ public class SecurityHeadersMiddlewareTests
         context.Response.Headers.StrictTransportSecurity.Should().NotBeEmpty();
         context.Response.Headers.XFrameOptions.Should().NotBeEmpty();
         context.Response.Headers.XContentTypeOptions.Should().NotBeEmpty();
-        context.Response.Headers.ReferrerPolicy.Should().NotBeEmpty();
+        context.Response.Headers[HttpResponseHeaderNames.ReferrerPolicy].ToString().Should().NotBeNullOrEmpty();
         context.Response.Headers.ContentSecurityPolicy.Should().NotBeEmpty();
     }
 
@@ -170,7 +172,7 @@ public class SecurityHeadersMiddlewareTests
     public async Task InvokeAsync_ShouldContinuePipeline()
     {
         // Arrange
-        _environmentMock.Setup(x => x.IsProduction()).Returns(false);
+        _environmentMock.Setup(x => x.EnvironmentName).Returns(Environments.Development);
         var context = CreateHttpContext();
         var nextCalled = false;
 
@@ -194,7 +196,7 @@ public class SecurityHeadersMiddlewareTests
     public async Task InvokeAsync_ProductionCsp_ShouldRestrictFrameAncestors()
     {
         // Arrange
-        _environmentMock.Setup(x => x.IsProduction()).Returns(true);
+        _environmentMock.Setup(x => x.EnvironmentName).Returns(Environments.Production);
         var context = CreateHttpContext();
         var nextDelegate = new RequestDelegate(async _ => await Task.CompletedTask);
         var middleware = new SecurityHeadersMiddleware(nextDelegate, _loggerMock.Object, _environmentMock.Object);
