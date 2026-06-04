@@ -11,7 +11,7 @@ ASP.NET Core REST API that converts numeric values between units of measurement 
 
 **Full steps (database setup, both services, seed users):** see **[`docs/ASPIRE-DEV-GUIDE.md`](docs/ASPIRE-DEV-GUIDE.md)**.
 
-**Manual testing:** [docs/TEST-SETUP.md](docs/TEST-SETUP.md) → [docs/TEST-E2E.md](docs/TEST-E2E.md) (full flow). Focused: [catalog/conversions](docs/TEST-CATALOG-AND-UNIT-CONVERSIONS.md) · [auth](docs/TEST-USER-MANAGEMENT-API.md) · [unit CRUD](docs/TEST-UNIT-DEFINITIONS-CRUD.md).
+**Manual testing:** [docs/MANUAL-TESTING.md](docs/MANUAL-TESTING.md) (clone, setup, F5, Scalar steps).
 
 From the repository root:
 
@@ -21,17 +21,19 @@ dotnet build
 .\scripts\database\setup-local.ps1
 ```
 
-Then start **User Management** and **Units Definitions** APIs in two terminals:
+**Recommended:** Follow [docs/MANUAL-TESTING.md](docs/MANUAL-TESTING.md) — clone in VS, run setup script, **F5** both APIs.
+
+| Service | HTTPS (Scalar / manual tests) | HTTP |
+|---------|-------------------------------|------|
+| Units (catalog, convert, unit-definitions) | https://localhost:7100/scalar/v1 | http://localhost:5173 |
+| User management (auth, JWT) | https://localhost:7180/scalar/v1 | http://localhost:5180 |
+
+CLI (optional):
 
 ```powershell
-dotnet run --project src/UnitConverter.UserManagement.Api
-dotnet run --project src/UnitConverter.UnitsDefinitions.Api
+dotnet run --project src/UnitConverter.UserManagement.Api --launch-profile https
+dotnet run --project src/UnitConverter.UnitsDefinitions.Api --launch-profile https
 ```
-
-| Service | HTTPS | HTTP |
-|---------|-------|------|
-| Conversion API | https://localhost:7100 | http://localhost:5173 |
-| User management (auth, JWT) | https://localhost:7180 | http://localhost:5180 |
 
 **Service boundaries (no duplicate hosts):**
 
@@ -40,7 +42,7 @@ dotnet run --project src/UnitConverter.UnitsDefinitions.Api
 | `POST /api/v1/users`, `/sessions`, `/sessions/refresh` only | `GET /catalog/*`, `POST /unit-conversions`, `GET|POST|PUT|DELETE /unit-definitions` |
 | No categories, units, or conversion routes | No users/sessions routes |
 
-Log in on **5180**, then call admin routes on **5173** with the JWT `Authorization: Bearer …` header.
+Sign in on **7180** (Scalar), then call unit-definitions on **7100** with `Authorization: Bearer …`.
 
 SQLite files live under **`Data/`** (outside `src/`): `Data/UserManagement/auth.db`, `Data/UnitsMaster/catalog.db`. Schema is applied via **EF Core migrations** before you run the apps—not on first HTTP request.
 
@@ -48,37 +50,31 @@ SQLite files live under **`Data/`** (outside `src/`): `Data/UserManagement/auth.
 
 Scalar is registered only when `ASPNETCORE_ENVIRONMENT=Development` (see each API `Program.cs`).
 
-| Service | Scalar UI | OpenAPI JSON |
-|---------|-----------|----------------|
-| Units & conversion | http://localhost:5173/scalar/v1 | http://localhost:5173/openapi/v1.json |
-| User management | http://localhost:5180/scalar/v1 | http://localhost:5180/openapi/v1.json |
+| Service | Scalar UI (HTTPS) | OpenAPI JSON |
+|---------|-------------------|----------------|
+| Units & conversion | https://localhost:7100/scalar/v1 | https://localhost:7100/openapi/v1.json |
+| User management | https://localhost:7180/scalar/v1 | https://localhost:7180/openapi/v1.json |
 
-**Opening the browser:** `launchBrowser` in `Properties/launchSettings.json` is used by **Visual Studio / VS Code F5** and **`dotnet watch run`**, not plain **`dotnet run`** (CLI does not launch a browser by design). To auto-open docs from the terminal:
-
-```powershell
-dotnet watch run --project src/UnitConverter.UnitsDefinitions.Api --launch-profile http
-```
-
-Or open the Scalar URL above manually after `dotnet run`.
+**F5** uses the **`https`** launch profile (`launchBrowser` → Scalar). Plain `dotnet run` does not open a browser — open the HTTPS Scalar URLs above.
 
 ### Try the API (no login)
 
 **List categories**
 
 ```bash
-curl -s http://localhost:5173/api/v1/catalog/categories
+curl -s https://localhost:7100/api/v1/catalog/categories
 ```
 
 **List units in a category** (by name or id `1` = length, `2` = mass, `3` = temperature)
 
 ```bash
-curl -s "http://localhost:5173/api/v1/catalog/units?categoryName=length&page=1&pageSize=20"
+curl -s "https://localhost:7100/api/v1/catalog/units?categoryName=length&page=1&pageSize=20"
 ```
 
 **Convert length (meters → kilometers)**
 
 ```bash
-curl -s -X POST http://localhost:5173/api/v1/unit-conversions ^
+curl -s -X POST https://localhost:7100/api/v1/unit-conversions ^
   -H "Content-Type: application/json" ^
   -d "{\"value\":1000,\"fromUnit\":\"m\",\"toUnit\":\"km\",\"category\":1}"
 ```
@@ -89,7 +85,7 @@ In Visual Studio / Rider, open `src/UnitConverter.UnitsDefinitions.Api/UnitConve
 
 ## API summary
 
-### Conversion API (`UnitConverter.UnitsDefinitions.Api` — http://localhost:5173)
+### Conversion API (`UnitConverter.UnitsDefinitions.Api` — https://localhost:7100)
 
 Public (no JWT): catalog and conversion. Admin routes require JWT (login on port 5180).
 

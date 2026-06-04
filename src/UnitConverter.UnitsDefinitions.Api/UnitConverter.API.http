@@ -1,9 +1,14 @@
-@host = http://localhost:5173
+# Manual tests: docs/MANUAL-TESTING.md
+# HTTPS (F5 default). HTTP: change host to http://localhost:5173
+
+@host = https://localhost:7100
 @v1 = {{host}}/api/v1
+@authHost = https://localhost:7180
+@auth = {{authHost}}/api/v1
 
-# UnitCategory enum: Length=1, Mass=2, Temperature=3 (wire: length, mass, weight→mass, temperature)
+# UnitCategory: Length=1, Mass=2, Temperature=3
 
-### Convert length: 1000 m → km
+### Convert length: 1000 m → km (Content-Type only)
 POST {{v1}}/unit-conversions
 Content-Type: application/json
 
@@ -14,7 +19,7 @@ Content-Type: application/json
   "category": 1
 }
 
-### Convert temperature: 0 °C → °F
+### Convert temperature: 0 °C → °F (Content-Type only)
 POST {{v1}}/unit-conversions
 Content-Type: application/json
 
@@ -25,7 +30,7 @@ Content-Type: application/json
   "category": 3
 }
 
-### Convert mass: 1 kg → lb
+### Convert mass: 1 kg → lb (Content-Type only)
 POST {{v1}}/unit-conversions
 Content-Type: application/json
 
@@ -36,24 +41,22 @@ Content-Type: application/json
   "category": 2
 }
 
-### Public catalog: list categories (no auth)
+### Public catalog: list categories (no headers)
 GET {{v1}}/catalog/categories
 
-### Public catalog: list length units by id (from GET categories)
+### Public catalog: length units by category id
 GET {{v1}}/catalog/units?category=1&page=1&pageSize=20
 
-### Public catalog: list length units by name (no id required)
+### Public catalog: length units by name
 GET {{v1}}/catalog/units?categoryName=length&page=1&pageSize=20
 
-### Public catalog: mass units (alias categoryName=weight)
+### Public catalog: mass units
 GET {{v1}}/catalog/units?categoryName=mass&page=1&pageSize=20
 
-# Unit definitions CRUD — full guide: docs/TEST-UNIT-DEFINITIONS-CRUD.md
-# 1) Sign in on 5180, 2) paste accessToken below, 3) run List → Create → Get → Update → Delete (Admin)
+# --- Unit definitions: sign in on 7180 first, paste accessToken below ---
 @token = <paste-accessToken-from-sessions>
-@auth = http://localhost:5180/api/v1
 
-### Step 0 — Sign in as Admin (full CRUD including delete)
+### Sign in as Admin (run on auth host; Content-Type only)
 # @name login
 POST {{auth}}/sessions
 Content-Type: application/json
@@ -63,11 +66,11 @@ Content-Type: application/json
   "password": "Test@12345"
 }
 
-### Unit definitions: list (requires token)
+### Unit definitions: list (Authorization)
 GET {{v1}}/unit-definitions?page=1&pageSize=50
 Authorization: Bearer {{token}}
 
-### Unit definitions: create
+### Unit definitions: create (Authorization + Content-Type)
 POST {{v1}}/unit-definitions
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -80,18 +83,11 @@ Content-Type: application/json
   "offsetToBase": 0
 }
 
-### Unit definitions: admin correction (Admin role only)
-PUT {{v1}}/unit-definitions/1/admin-correction
+### Unit definitions: get by id (Authorization; replace id)
+GET {{v1}}/unit-definitions/1
 Authorization: Bearer {{token}}
-Content-Type: application/json
 
-{
-  "displayName": "Meter (verified)",
-  "multiplierToBase": 1,
-  "offsetToBase": 0
-}
-
-### Unit definitions: update (replace id)
+### Unit definitions: update (Authorization + Content-Type; replace id)
 PUT {{v1}}/unit-definitions/1
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -102,9 +98,24 @@ Content-Type: application/json
   "offsetToBase": 0
 }
 
-### Unit definitions: delete (replace id; Admin only)
+### Unit definitions: approve (Authorization; Admin; replace id)
+PUT {{v1}}/unit-definitions/1/approve
+Authorization: Bearer {{token}}
+
+### Unit definitions: admin correction (Authorization + Content-Type; Admin; replace id)
+PUT {{v1}}/unit-definitions/1/admin-correction
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "displayName": "Meter (verified)",
+  "multiplierToBase": 1,
+  "offsetToBase": 0
+}
+
+### Unit definitions: delete (Authorization; Admin; replace id)
 DELETE {{v1}}/unit-definitions/99
 Authorization: Bearer {{token}}
 
-### OpenAPI document (Development)
+### OpenAPI document (Development; no headers)
 GET {{host}}/openapi/v1.json

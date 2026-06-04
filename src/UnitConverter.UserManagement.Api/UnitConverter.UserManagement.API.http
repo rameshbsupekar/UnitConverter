@@ -1,11 +1,23 @@
-@host = http://localhost:5180
+# Manual tests: docs/MANUAL-TESTING.md
+# HTTPS (F5 default). HTTP: change host to http://localhost:5180
+
+@host = https://localhost:7180
 @v1 = {{host}}/api/v1
 
-# Seeded users (after .\scripts\database\setup-local.ps1): password Test@12345
+# Seeded users (password Test@12345):
 # admin@unitconverter.local | employee@unitconverter.local | partner@unitconverter.local | public@unitconverter.local
 
-### Sign in (returns accessToken + refreshToken)
+### Sign in (Content-Type only; copy accessToken for Units .http @token)
 # @name login
+POST {{v1}}/sessions
+Content-Type: application/json
+
+{
+  "email": "admin@unitconverter.local",
+  "password": "Test@12345"
+}
+
+### Sign in as Employee
 POST {{v1}}/sessions
 Content-Type: application/json
 
@@ -14,15 +26,15 @@ Content-Type: application/json
   "password": "Test@12345"
 }
 
-### Refresh access token (use refreshToken from login response)
-# POST {{v1}}/sessions/refresh
-# Content-Type: application/json
-#
-# {
-#   "refreshToken": "<paste-refresh-token>"
-# }
+### Refresh access token (Content-Type only)
+POST {{v1}}/sessions/refresh
+Content-Type: application/json
 
-### Register new user (all fields required; password min 12 chars + upper/lower/digit/special)
+{
+  "refreshToken": "<paste-refresh-token-from-login>"
+}
+
+### Register new user (Content-Type only)
 POST {{v1}}/users
 Content-Type: application/json
 
@@ -35,5 +47,5 @@ Content-Type: application/json
   "idempotencyKey": "1af9f554-bc99-4960-a2a0-5e6b8fa703ad"
 }
 
-### Health
+### Health (no headers)
 GET {{host}}/health
