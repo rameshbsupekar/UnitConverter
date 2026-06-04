@@ -1,4 +1,4 @@
-# Manual tests: docs/MANUAL-TESTING.md
+# Manual tests: MANUAL-TESTING.md (repo root)
 # HTTPS (F5 default). HTTP: change host to http://localhost:5180
 
 @host = https://localhost:7180

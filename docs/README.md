@@ -2,7 +2,7 @@
 
 | Document | Purpose |
 |----------|---------|
-| [MANUAL-TESTING.md](MANUAL-TESTING.md) | **Manual tests:** clone, setup, F5, Scalar (catalog, convert, CRUD) |
+| [**MANUAL-TESTING.md**](../MANUAL-TESTING.md) | **Manual API tests** (repo root — Scalar Test Case API 1–11) |
 | [ASPIRE-DEV-GUIDE.md](ASPIRE-DEV-GUIDE.md) | Local setup: migrations, run both APIs, seed users |
 | [HLD.md](HLD.md) | High-level design: services, roles, endpoints |
 | [DATABASE-SCHEMA.md](DATABASE-SCHEMA.md) | Tables, constraints, migration folders |

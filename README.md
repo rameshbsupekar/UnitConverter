@@ -2,6 +2,8 @@
 
 ASP.NET Core REST API that converts numeric values between units of measurement (length, temperature, and weight/mass). Built for a real-world, team-maintainable structure with clean architecture and automated tests.
 
+**Manual API testing (Scalar):** [**MANUAL-TESTING.md**](MANUAL-TESTING.md) — clone, F5, Test Case API 1–11.
+
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (preview; this solution targets `net10.0`)
@@ -11,7 +13,7 @@ ASP.NET Core REST API that converts numeric values between units of measurement 
 
 **Full steps (database setup, both services, seed users):** see **[`docs/ASPIRE-DEV-GUIDE.md`](docs/ASPIRE-DEV-GUIDE.md)**.
 
-**Manual testing:** [docs/MANUAL-TESTING.md](docs/MANUAL-TESTING.md) (clone, setup, F5, Scalar steps).
+**Manual testing:** [MANUAL-TESTING.md](MANUAL-TESTING.md) (at repo root, next to this file).
 
 From the repository root:
 
@@ -21,7 +23,7 @@ dotnet build
 .\scripts\database\setup-local.ps1
 ```
 
-**Recommended:** Follow [docs/MANUAL-TESTING.md](docs/MANUAL-TESTING.md) — clone in VS, run setup script, **F5** both APIs.
+**Recommended:** Follow [MANUAL-TESTING.md](MANUAL-TESTING.md) — clone in VS, run setup script, **F5** both APIs.
 
 | Service | HTTPS (Scalar / manual tests) | HTTP |
 |---------|-------------------------------|------|
